@@ -4,6 +4,7 @@ use std::{
     rc::{Rc, Weak},
 };
 
+#[allow(dead_code)]
 #[derive(PartialEq)]
 pub enum MazeMoveDir {
     Forward,
@@ -15,6 +16,7 @@ pub struct Maze<const DIMS: usize> {
     lengths: [usize; DIMS],
 }
 
+#[allow(dead_code)]
 impl<const DIMS: usize> Maze<DIMS> {
     // Generate a maze with the provided number of side lengths.
     pub fn new(lengths: &[usize; DIMS], rng: &mut impl rand::Rng) -> Maze<DIMS> {
