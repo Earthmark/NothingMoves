@@ -1,6 +1,6 @@
 use std::{
     cell::RefCell,
-    collections::HashMap,
+    collections::{BinaryHeap, HashMap},
     rc::{Rc, Weak},
 };
 
@@ -118,7 +118,7 @@ fn unwrap_index<const DIMS: usize>(lengths: &[usize; DIMS], index: usize) -> Opt
 // Generate a maze with the provided number of side lengths.
 pub fn generate_maze<const DIMS: usize>(
     lengths: &[usize; DIMS],
-    rng: impl rand::Rng,
+    rng: &mut impl rand::Rng,
 ) -> impl Maze<DIMS> {
     let mut maze = WalkMaze::<DIMS> {
         lengths: lengths.clone(),
@@ -134,14 +134,14 @@ pub fn generate_maze<const DIMS: usize>(
         cells.insert(pos, MazeGenCell::new(index));
     }
 
-    let mut pending_edges = Vec::with_capacity(cell_count * DIMS);
+    let mut pending_edges = BinaryHeap::with_capacity(cell_count * DIMS);
     for index in 0..cell_count {
         for dim in 0..DIMS {
-            pending_edges.push((index, dim))
+            pending_edges.push((rng.next_u32(), index, dim))
         }
     }
 
-    while let Some((target_index, dim)) = pending_edges.pop() {
+    while let Some((_, target_index, dim)) = pending_edges.pop() {
         let a = unwrap_index(lengths, target_index).unwrap();
         if a[dim] == lengths[dim] {
             continue;
@@ -202,8 +202,8 @@ mod tests {
 
     #[test]
     fn verify_generates() {
-        let rng = StdRng::seed_from_u64(684153987);
-        let maze = generate_maze(&[5, 5, 5, 5, 5], rng);
+        let mut rng = StdRng::seed_from_u64(684153987);
+        let maze = generate_maze(&[5, 5, 5, 5, 5], &mut rng);
 
         assert_eq!(
             maze.can_move(&[1, 2, 3214, 2, 2], 2, MazeMoveDir::Forward),
@@ -213,8 +213,8 @@ mod tests {
 
     #[test]
     fn verify_generates_single() {
-        let rng = StdRng::seed_from_u64(684153987);
-        let maze = generate_maze(&[5, 1, 1], rng);
+        let mut rng = StdRng::seed_from_u64(684153987);
+        let maze = generate_maze(&[5, 1, 1], &mut rng);
 
         assert_eq!(
             maze.can_move(&[0, 0, 0], 0, MazeMoveDir::Forward),
