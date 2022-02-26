@@ -1,5 +1,7 @@
 #![windows_subsystem = "windows"]
 
+mod maze;
+
 use bevy::prelude::*;
 
 fn main() {
