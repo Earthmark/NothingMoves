@@ -11,7 +11,7 @@ struct LevelAdaptor<const DIMS: usize> {
 
 impl<const DIMS: usize> LevelAdaptor<DIMS> {
     fn should_make_wall(&self, position: &[usize; DIMS], direction: usize) -> bool {
-        if let Some(walkable) = self.maze.can_move(&position, direction) {
+        if let Some(walkable) = self.maze.can_move(position, direction) {
             !walkable
         } else {
             false
