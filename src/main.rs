@@ -1,6 +1,5 @@
 //#![windows_subsystem = "windows"]
 
-mod async_promoter;
 mod level;
 mod maze;
 
@@ -31,13 +30,14 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     });
 
     commands.spawn_bundle(PerspectiveCameraBundle {
-        transform: Transform::from_xyz(10.2, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
+        transform: Transform::from_xyz(11.0, 30.0, 10.0)
+            .looking_at(Vec3::new(10.0, 0.0, 10.0), Vec3::Y),
         ..Default::default()
     });
 
     commands.spawn_bundle(level::LevelLoaderBundle {
         level_loader: level::LevelLoader {
-            dimensions: level::DimensionLength::Four([6, 6, 6, 6]),
+            dimensions: level::DimensionLength::Three([4, 4, 4]),
             ..Default::default()
         },
         ..Default::default()
