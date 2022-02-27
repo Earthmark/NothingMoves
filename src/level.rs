@@ -313,6 +313,40 @@ fn level_generation_system(mut commands: Commands, query: Query<(Entity, &Level)
                 .insert(Transform::default())
                 .insert(GlobalTransform::default())
                 .with_children(move |builder| {
+                    // borders
+                    let lx = level.length_x() as f32;
+                    let ly = level.length_y() as f32;
+                    builder.spawn_bundle(PbrBundle {
+                        mesh: level.wall.clone(),
+                        material: level.material.clone(),
+                        transform: Transform::from_xyz((lx / 2.0) - 0.5, 0.0, -0.5)
+                            .with_scale(Vec3::new(1.0, 1.0, lx))
+                            .with_rotation(Quat::from_rotation_y(PI / 2.0)),
+                        ..Default::default()
+                    });
+                    builder.spawn_bundle(PbrBundle {
+                        mesh: level.wall.clone(),
+                        material: level.material.clone(),
+                        transform: Transform::from_xyz((lx / 2.0) - 0.5, 0.0, ly - 0.5)
+                            .with_scale(Vec3::new(1.0, 1.0, lx))
+                            .with_rotation(Quat::from_rotation_y(PI / 2.0)),
+                        ..Default::default()
+                    });
+                    builder.spawn_bundle(PbrBundle {
+                        mesh: level.wall.clone(),
+                        material: level.material.clone(),
+                        transform: Transform::from_xyz(-0.5, 0.0, (ly / 2.0) - 0.5)
+                            .with_scale(Vec3::new(1.0, 1.0, ly)),
+                        ..Default::default()
+                    });
+                    builder.spawn_bundle(PbrBundle {
+                        mesh: level.wall.clone(),
+                        material: level.material.clone(),
+                        transform: Transform::from_xyz(lx - 0.5, 0.0, (ly / 2.0) - 0.5)
+                            .with_scale(Vec3::new(1.0, 1.0, ly)),
+                        ..Default::default()
+                    });
+
                     // joints
                     for x in 0..level.length_x() + 1 {
                         for y in 0..level.length_y() + 1 {
