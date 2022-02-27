@@ -37,7 +37,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     commands.spawn_bundle(level::LevelLoaderBundle {
         level_loader: level::LevelLoader {
-            dimensions: level::DimensionLength::Three([4, 2, 5]),
+            dimensions: level::DimensionLength::Three([4, 15, 5]),
             ..Default::default()
         },
         ..Default::default()
