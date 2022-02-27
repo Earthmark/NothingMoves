@@ -177,31 +177,43 @@ impl<const DIMS: usize> MazeLevel<DIMS> {
         self.maze.lengths().get(dim).copied()
     }
 
-    fn generate_walls(
-        &self,
+    fn generate_walls<'a>(
+        &'a self,
         dim_x: usize,
         dim_y: usize,
-        f: &mut dyn FnMut(&[usize; 2], &[usize; 2]),
-    ) {
+    ) -> Option<impl std::iter::Iterator<Item = ([usize; 2], [usize; 2])> + 'a> {
         // If we're mapping the same dimension, bail out.
         // If we're not accessing the correct dimensions, bail out.
         if dim_x == dim_y || dim_x >= DIMS || dim_y >= DIMS {
-            return;
+            return None;
         }
-        for cursor_x in 0..self.maze.lengths()[dim_x] {
-            for cursor_y in 0..self.maze.lengths()[dim_y] {
-                let mut cursor = self.position;
-                cursor[dim_x] = cursor_x;
-                cursor[dim_y] = cursor_y;
 
-                if self.should_make_wall(&cursor, dim_x) {
-                    f(&[cursor_x, cursor_y], &[cursor_x + 1, cursor_y]);
-                }
-                if self.should_make_wall(&cursor, dim_y) {
-                    f(&[cursor_x, cursor_y], &[cursor_x, cursor_y + 1]);
-                }
-            }
-        }
+        let length_x = self.maze.lengths()[dim_x];
+        let length_y = self.maze.lengths()[dim_y];
+        let position = self.position;
+
+        Some(
+            (0..length_x)
+                .flat_map(move |x| (0..length_y).map(move |y| (x, y)))
+                .flat_map(move |(cursor_x, cursor_y)| {
+                    let mut cursor = position;
+                    cursor[dim_x] = cursor_x;
+                    cursor[dim_y] = cursor_y;
+                    [
+                        if self.should_make_wall(&cursor, dim_x) {
+                            Some(([cursor_x, cursor_y], [cursor_x + 1, cursor_y]))
+                        } else {
+                            None
+                        },
+                        if self.should_make_wall(&cursor, dim_y) {
+                            Some(([cursor_x, cursor_y], [cursor_x, cursor_y + 1]))
+                        } else {
+                            None
+                        },
+                    ]
+                })
+                .filter_map(|pair| pair),
+        )
     }
 }
 
@@ -327,21 +339,21 @@ fn level_generation_system<const DIMS: usize>(
                     }
 
                     // walls
-                    level.generate_walls(level.dim_x, level.dim_y, &mut |v1, v2| {
-                        let p1 = Vec3::new(v1[0] as f32, 0.0, v1[1] as f32);
-                        let p2 = Vec3::new(v2[0] as f32, 0.0, v2[1] as f32);
-                        let rotation = if v1[0] != v2[0] {
-                            Quat::IDENTITY
-                        } else {
-                            Quat::from_rotation_y(PI / 2.0)
-                        };
-                        let position = p1.lerp(p2, 0.5);
-                        builder.spawn_bundle(
-                            assets.wall(
+                    if let Some(iter) = level.generate_walls(level.dim_x, level.dim_y) {
+                        for (v1, v2) in iter {
+                            let p1 = Vec3::new(v1[0] as f32, 0.0, v1[1] as f32);
+                            let p2 = Vec3::new(v2[0] as f32, 0.0, v2[1] as f32);
+                            let rotation = if v1[0] != v2[0] {
+                                Quat::IDENTITY
+                            } else {
+                                Quat::from_rotation_y(PI / 2.0)
+                            };
+                            let position = p1.lerp(p2, 0.5);
+                            builder.spawn_bundle(assets.wall(
                                 Transform::from_translation(position).with_rotation(rotation),
-                            ),
-                        );
-                    });
+                            ));
+                        }
+                    }
                 });
         });
     }
