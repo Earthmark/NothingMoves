@@ -169,8 +169,9 @@ impl Default for Level {
     fn default() -> Self {
         Self {
             maze: Box::new(NullMaze),
-            dim_x: Default::default(),
-            dim_y: Default::default(),
+            // These must be different or the maze won't render.
+            dim_x: 0,
+            dim_y: 1,
             axis: FocusedAxis::X,
             joint: Default::default(),
             wall: Default::default(),
@@ -227,16 +228,6 @@ impl Level {
         } else {
             new_off_axis
         };
-
-        info!(
-            "Shifted off axis from {} to linear {} to {} with intermediate of {} with a limit of {}. Main is at {}",
-            current,
-            linear_current,
-            dest,
-            new_off_axis,
-            self.maze.dims(),
-            self.axis_current()
-        );
 
         match self.axis {
             FocusedAxis::X => self.dim_y = dest,
@@ -314,7 +305,6 @@ fn spawn_level_system(
 
 fn level_generation_system(mut commands: Commands, query: Query<(Entity, &Level), Changed<Level>>) {
     for (entity, level) in query.iter() {
-        info!("Spawning level");
         commands.entity(entity).despawn_descendants();
 
         commands.entity(entity).with_children(move |builder| {
