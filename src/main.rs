@@ -1,6 +1,5 @@
 //#![windows_subsystem = "windows"]
 
-mod async_promoter;
 mod level;
 mod maze;
 

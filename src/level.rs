@@ -1,7 +1,7 @@
-use std::{f32::consts::PI, time::Instant};
+use std::f32::consts::PI;
 
 use crate::maze;
-use bevy::{prelude::*, tasks::AsyncComputeTaskPool};
+use bevy::prelude::*;
 use rand::prelude::*;
 
 struct LevelAdaptor<const DIMS: usize> {
@@ -56,6 +56,30 @@ impl<const DIMS: usize> MazeLevel for LevelAdaptor<DIMS> {
     }
 }
 
+struct NullMaze;
+
+impl MazeLevel for NullMaze {
+    fn dims(&self) -> usize {
+        2
+    }
+
+    fn length_of_dim(&self, dim: usize) -> Option<usize> {
+        if dim < 2 {
+            Some(1)
+        } else {
+            None
+        }
+    }
+
+    fn generate_walls(
+        &self,
+        _dim_x: usize,
+        _dim_y: usize,
+        _f: &mut dyn FnMut(&[usize; 2], &[usize; 2]),
+    ) {
+    }
+}
+
 trait MazeLevel: Sync + Send {
     fn dims(&self) -> usize;
     fn length_of_dim(&self, dim: usize) -> Option<usize>;
@@ -105,17 +129,27 @@ pub struct LevelLoaderBundle {
     pub global_transform: GlobalTransform,
 }
 
+fn create_adapted_maze<const DIMS: usize>(
+    lengths: &[usize; DIMS],
+    rng: &mut impl rand::Rng,
+) -> Box<dyn MazeLevel> {
+    Box::new(LevelAdaptor {
+        maze: maze::Maze::new(lengths, rng),
+        position: [0; DIMS],
+    })
+}
+
 impl LevelLoader {
-    pub fn load(&self) -> Level {
+    fn load(&self) -> Box<dyn MazeLevel> {
         let mut rng = match self.rng_source {
             RngSource::Seeded(seed) => StdRng::seed_from_u64(seed),
         };
         match self.dimensions {
-            DimensionLength::Two(lengths) => Level::new(&lengths, &mut rng),
-            DimensionLength::Three(lengths) => Level::new(&lengths, &mut rng),
-            DimensionLength::Four(lengths) => Level::new(&lengths, &mut rng),
-            DimensionLength::Five(lengths) => Level::new(&lengths, &mut rng),
-            DimensionLength::Six(lengths) => Level::new(&lengths, &mut rng),
+            DimensionLength::Two(lengths) => create_adapted_maze(&lengths, &mut rng),
+            DimensionLength::Three(lengths) => create_adapted_maze(&lengths, &mut rng),
+            DimensionLength::Four(lengths) => create_adapted_maze(&lengths, &mut rng),
+            DimensionLength::Five(lengths) => create_adapted_maze(&lengths, &mut rng),
+            DimensionLength::Six(lengths) => create_adapted_maze(&lengths, &mut rng),
         }
     }
 }
@@ -128,8 +162,21 @@ pub struct Level {
     axis: FocusedAxis,
     joint: Handle<Mesh>,
     wall: Handle<Mesh>,
-    border: Handle<Mesh>,
     material: Handle<StandardMaterial>,
+}
+
+impl Default for Level {
+    fn default() -> Self {
+        Self {
+            maze: Box::new(NullMaze),
+            dim_x: Default::default(),
+            dim_y: Default::default(),
+            axis: FocusedAxis::X,
+            joint: Default::default(),
+            wall: Default::default(),
+            material: Default::default(),
+        }
+    }
 }
 
 enum FocusedAxis {
@@ -143,22 +190,6 @@ enum Direction {
 }
 
 impl Level {
-    fn new<const DIMS: usize>(lengths: &[usize; DIMS], rng: &mut impl rand::Rng) -> Self {
-        Level {
-            maze: Box::new(LevelAdaptor {
-                maze: maze::Maze::new(lengths, rng),
-                position: [0; DIMS],
-            }),
-            dim_x: 0,
-            dim_y: 1,
-            axis: FocusedAxis::X,
-            joint: Default::default(),
-            wall: Default::default(),
-            border: Default::default(),
-            material: Default::default(),
-        }
-    }
-
     fn flip_axis(&mut self) {
         match self.axis {
             FocusedAxis::X => self.axis = FocusedAxis::Y,
@@ -241,8 +272,7 @@ impl Plugin for LevelPlugin {
     fn build(&self, app: &mut App) {
         app.add_system(spawn_level_system)
             .add_system(level_generation_system)
-            .add_system(level_input_system)
-            .add_system(crate::async_promoter::promote_task_component::<Level>);
+            .add_system(level_input_system);
     }
 }
 
@@ -267,50 +297,18 @@ fn level_input_system(mut query: Query<&mut Level>, keys: Res<Input<KeyCode>>) {
 fn spawn_level_system(
     mut commands: Commands,
     query: Query<(Entity, &LevelLoader), Added<LevelLoader>>,
-    thread_pool: Res<AsyncComputeTaskPool>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     for (entity, level_loader) in query.iter() {
-        let local_loader = level_loader.clone();
-        let joint = meshes.add(Mesh::from(shape::Box {
-            min_x: -0.1,
-            max_x: 0.1,
-            min_y: -0.5,
-            max_y: 0.5,
-            min_z: -0.1,
-            max_z: 0.1,
-        }));
-        let wall = meshes.add(Mesh::from(shape::Box {
-            min_x: -0.05,
-            max_x: 0.05,
-            min_y: -0.3,
-            max_y: 0.3,
-            min_z: -0.5,
-            max_z: 0.5,
-        }));
-        let border = meshes.add(Mesh::from(shape::Box {
-            min_x: -0.1,
-            max_x: 0.1,
-            min_y: -0.4,
-            max_y: 0.4,
-            min_z: -0.5,
-            max_z: 0.5,
-        }));
-        let material = materials.add(Color::rgb(0.8, 0.7, 0.6).into());
-        commands
-            .entity(entity)
-            .insert(thread_pool.spawn(async move {
-                info!("Generating maze from {:?}", local_loader);
-                let now = Instant::now();
-                let mut level = local_loader.load();
-                info!("Maze generated in {:?}", now.elapsed());
-                level.joint = joint;
-                level.wall = wall;
-                level.material = material;
-                level.border = border;
-                level
-            }));
+        commands.entity(entity).insert(Level {
+            // TODO: Migrate maze to load async once that works for wasm.
+            maze: level_loader.load(),
+            joint: meshes.add(Mesh::from(shape::Box::new(0.2, 1.0, 0.2))),
+            wall: meshes.add(Mesh::from(shape::Box::new(0.1, 0.6, 1.0))),
+            material: materials.add(Color::rgb(0.8, 0.7, 0.6).into()),
+            ..Default::default()
+        });
     }
 }
 
