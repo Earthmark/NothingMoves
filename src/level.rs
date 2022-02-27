@@ -4,93 +4,6 @@ use crate::maze;
 use bevy::prelude::*;
 use rand::prelude::*;
 
-struct LevelAdaptor<const DIMS: usize> {
-    position: [usize; DIMS],
-    maze: maze::Maze<DIMS>,
-}
-
-impl<const DIMS: usize> LevelAdaptor<DIMS> {
-    fn should_make_wall(&self, position: &[usize; DIMS], direction: usize) -> bool {
-        if let Some(walkable) = self.maze.can_move(position, direction) {
-            !walkable
-        } else {
-            false
-        }
-    }
-}
-
-impl<const DIMS: usize> MazeLevel for LevelAdaptor<DIMS> {
-    fn dims(&self) -> usize {
-        DIMS
-    }
-
-    fn length_of_dim(&self, dim: usize) -> Option<usize> {
-        self.maze.lengths().get(dim).copied()
-    }
-
-    fn generate_walls(
-        &self,
-        dim_x: usize,
-        dim_y: usize,
-        f: &mut dyn FnMut(&[usize; 2], &[usize; 2]),
-    ) {
-        // If we're mapping the same dimension, bail out.
-        // If we're not accessing the correct dimensions, bail out.
-        if dim_x == dim_y || dim_x >= DIMS || dim_y >= DIMS {
-            return;
-        }
-        for cursor_x in 0..self.maze.lengths()[dim_x] {
-            for cursor_y in 0..self.maze.lengths()[dim_y] {
-                let mut cursor = self.position;
-                cursor[dim_x] = cursor_x;
-                cursor[dim_y] = cursor_y;
-
-                if self.should_make_wall(&cursor, dim_x) {
-                    f(&[cursor_x, cursor_y], &[cursor_x + 1, cursor_y]);
-                }
-                if self.should_make_wall(&cursor, dim_y) {
-                    f(&[cursor_x, cursor_y], &[cursor_x, cursor_y + 1]);
-                }
-            }
-        }
-    }
-}
-
-struct NullMaze;
-
-impl MazeLevel for NullMaze {
-    fn dims(&self) -> usize {
-        2
-    }
-
-    fn length_of_dim(&self, dim: usize) -> Option<usize> {
-        if dim < 2 {
-            Some(1)
-        } else {
-            None
-        }
-    }
-
-    fn generate_walls(
-        &self,
-        _dim_x: usize,
-        _dim_y: usize,
-        _f: &mut dyn FnMut(&[usize; 2], &[usize; 2]),
-    ) {
-    }
-}
-
-trait MazeLevel: Sync + Send {
-    fn dims(&self) -> usize;
-    fn length_of_dim(&self, dim: usize) -> Option<usize>;
-    fn generate_walls(
-        &self,
-        dim_x: usize,
-        dim_y: usize,
-        f: &mut dyn FnMut(&[usize; 2], &[usize; 2]),
-    );
-}
-
 #[derive(Component, Clone, Debug)]
 pub struct LevelLoader {
     pub rng_source: RngSource,
@@ -129,57 +42,6 @@ pub struct LevelLoaderBundle {
     pub global_transform: GlobalTransform,
 }
 
-fn create_adapted_maze<const DIMS: usize>(
-    lengths: &[usize; DIMS],
-    rng: &mut impl rand::Rng,
-) -> Box<dyn MazeLevel> {
-    Box::new(LevelAdaptor {
-        maze: maze::Maze::new(lengths, rng),
-        position: [0; DIMS],
-    })
-}
-
-impl LevelLoader {
-    fn load(&self) -> Box<dyn MazeLevel> {
-        let mut rng = match self.rng_source {
-            RngSource::Seeded(seed) => StdRng::seed_from_u64(seed),
-        };
-        match self.dimensions {
-            DimensionLength::Two(lengths) => create_adapted_maze(&lengths, &mut rng),
-            DimensionLength::Three(lengths) => create_adapted_maze(&lengths, &mut rng),
-            DimensionLength::Four(lengths) => create_adapted_maze(&lengths, &mut rng),
-            DimensionLength::Five(lengths) => create_adapted_maze(&lengths, &mut rng),
-            DimensionLength::Six(lengths) => create_adapted_maze(&lengths, &mut rng),
-        }
-    }
-}
-
-#[derive(Component)]
-pub struct Level {
-    maze: Box<dyn MazeLevel>,
-    dim_x: usize,
-    dim_y: usize,
-    axis: FocusedAxis,
-    joint: Handle<Mesh>,
-    wall: Handle<Mesh>,
-    material: Handle<StandardMaterial>,
-}
-
-impl Default for Level {
-    fn default() -> Self {
-        Self {
-            maze: Box::new(NullMaze),
-            // These must be different or the maze won't render.
-            dim_x: 0,
-            dim_y: 1,
-            axis: FocusedAxis::X,
-            joint: Default::default(),
-            wall: Default::default(),
-            material: Default::default(),
-        }
-    }
-}
-
 enum FocusedAxis {
     X,
     Y,
@@ -190,7 +52,62 @@ enum Direction {
     Negative,
 }
 
-impl Level {
+#[derive(Component)]
+struct MazeAssets {
+    joint: Handle<Mesh>,
+    wall: Handle<Mesh>,
+    material: Handle<StandardMaterial>,
+}
+
+impl MazeAssets {
+    fn wall(&self, transform: Transform) -> PbrBundle {
+        PbrBundle {
+            mesh: self.wall.clone(),
+            material: self.material.clone(),
+            transform,
+            ..Default::default()
+        }
+    }
+
+    fn joint(&self, transform: Transform) -> PbrBundle {
+        PbrBundle {
+            mesh: self.joint.clone(),
+            material: self.material.clone(),
+            transform,
+            ..Default::default()
+        }
+    }
+}
+
+#[derive(Component)]
+struct MazeLevel<const DIMS: usize> {
+    position: [usize; DIMS],
+    maze: maze::Maze<DIMS>,
+    dim_x: usize,
+    dim_y: usize,
+    axis: FocusedAxis,
+}
+
+impl<const DIMS: usize> Default for MazeLevel<DIMS> {
+    fn default() -> Self {
+        Self {
+            maze: Default::default(),
+            dim_x: 0,
+            dim_y: 1,
+            axis: FocusedAxis::X,
+            position: [0; DIMS],
+        }
+    }
+}
+
+impl<const DIMS: usize> MazeLevel<DIMS> {
+    fn new(lengths: &[usize; DIMS], rng: &mut impl rand::Rng) -> Self {
+        Self {
+            maze: crate::maze::Maze::new(lengths, rng),
+            ..Default::default()
+        }
+    }
+
     fn flip_axis(&mut self) {
         match self.axis {
             FocusedAxis::X => self.axis = FocusedAxis::Y,
@@ -219,10 +136,8 @@ impl Level {
 
         let new_off_axis = match dir {
             Direction::Positive => linear_current.checked_add(1).unwrap_or(0),
-            Direction::Negative => linear_current
-                .checked_sub(1)
-                .unwrap_or(self.maze.dims() - 2),
-        } % (self.maze.dims() - 1);
+            Direction::Negative => linear_current.checked_sub(1).unwrap_or(self.dims() - 2),
+        } % (self.dims() - 1);
         let dest = if new_off_axis >= self.axis_current() {
             new_off_axis + 1
         } else {
@@ -235,25 +150,58 @@ impl Level {
         };
     }
 
+    // assume dim_x and dim_y are both together.
     #[inline]
+    fn length_x(&self) -> usize {
+        self.length_of_dim(self.dim_x).unwrap()
+    }
+
+    #[inline]
+    fn length_y(&self) -> usize {
+        self.length_of_dim(self.dim_y).unwrap()
+    }
+
+    fn should_make_wall(&self, position: &[usize; DIMS], direction: usize) -> bool {
+        if let Some(walkable) = self.maze.can_move(position, direction) {
+            !walkable
+        } else {
+            false
+        }
+    }
+
+    fn dims(&self) -> usize {
+        DIMS
+    }
+
+    fn length_of_dim(&self, dim: usize) -> Option<usize> {
+        self.maze.lengths().get(dim).copied()
+    }
+
     fn generate_walls(
         &self,
         dim_x: usize,
         dim_y: usize,
         f: &mut dyn FnMut(&[usize; 2], &[usize; 2]),
     ) {
-        self.maze.generate_walls(dim_x, dim_y, f)
-    }
+        // If we're mapping the same dimension, bail out.
+        // If we're not accessing the correct dimensions, bail out.
+        if dim_x == dim_y || dim_x >= DIMS || dim_y >= DIMS {
+            return;
+        }
+        for cursor_x in 0..self.maze.lengths()[dim_x] {
+            for cursor_y in 0..self.maze.lengths()[dim_y] {
+                let mut cursor = self.position;
+                cursor[dim_x] = cursor_x;
+                cursor[dim_y] = cursor_y;
 
-    // assume dim_x and dim_y are both together.
-    #[inline]
-    fn length_x(&self) -> usize {
-        self.maze.length_of_dim(self.dim_x).unwrap()
-    }
-
-    #[inline]
-    fn length_y(&self) -> usize {
-        self.maze.length_of_dim(self.dim_y).unwrap()
+                if self.should_make_wall(&cursor, dim_x) {
+                    f(&[cursor_x, cursor_y], &[cursor_x + 1, cursor_y]);
+                }
+                if self.should_make_wall(&cursor, dim_y) {
+                    f(&[cursor_x, cursor_y], &[cursor_x, cursor_y + 1]);
+                }
+            }
+        }
     }
 }
 
@@ -262,12 +210,23 @@ pub struct LevelPlugin;
 impl Plugin for LevelPlugin {
     fn build(&self, app: &mut App) {
         app.add_system(spawn_level_system)
-            .add_system(level_generation_system)
-            .add_system(level_input_system);
+            .add_system(level_generation_system::<2>)
+            .add_system(level_generation_system::<3>)
+            .add_system(level_generation_system::<4>)
+            .add_system(level_generation_system::<5>)
+            .add_system(level_generation_system::<6>)
+            .add_system(level_input_system::<2>)
+            .add_system(level_input_system::<3>)
+            .add_system(level_input_system::<4>)
+            .add_system(level_input_system::<5>)
+            .add_system(level_input_system::<6>);
     }
 }
 
-fn level_input_system(mut query: Query<&mut Level>, keys: Res<Input<KeyCode>>) {
+fn level_input_system<const DIMS: usize>(
+    mut query: Query<&mut MazeLevel<DIMS>>,
+    keys: Res<Input<KeyCode>>,
+) {
     if keys.just_pressed(KeyCode::Q) {
         for mut level in query.iter_mut() {
             level.off_axis_shift(Direction::Negative);
@@ -292,19 +251,32 @@ fn spawn_level_system(
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     for (entity, level_loader) in query.iter() {
-        commands.entity(entity).insert(Level {
-            // TODO: Migrate maze to load async once that works for wasm.
-            maze: level_loader.load(),
+        let mut entity = commands.entity(entity);
+
+        let mut rng = match level_loader.rng_source {
+            RngSource::Seeded(seed) => StdRng::seed_from_u64(seed),
+        };
+        match level_loader.dimensions {
+            DimensionLength::Two(lengths) => entity.insert(MazeLevel::new(&lengths, &mut rng)),
+            DimensionLength::Three(lengths) => entity.insert(MazeLevel::new(&lengths, &mut rng)),
+            DimensionLength::Four(lengths) => entity.insert(MazeLevel::new(&lengths, &mut rng)),
+            DimensionLength::Five(lengths) => entity.insert(MazeLevel::new(&lengths, &mut rng)),
+            DimensionLength::Six(lengths) => entity.insert(MazeLevel::new(&lengths, &mut rng)),
+        };
+
+        entity.insert(MazeAssets {
             joint: meshes.add(Mesh::from(shape::Box::new(0.2, 1.0, 0.2))),
             wall: meshes.add(Mesh::from(shape::Box::new(0.1, 0.6, 1.0))),
             material: materials.add(Color::rgb(0.8, 0.7, 0.6).into()),
-            ..Default::default()
         });
     }
 }
 
-fn level_generation_system(mut commands: Commands, query: Query<(Entity, &Level), Changed<Level>>) {
-    for (entity, level) in query.iter() {
+fn level_generation_system<const DIMS: usize>(
+    mut commands: Commands,
+    query: Query<(Entity, &MazeLevel<DIMS>, &MazeAssets), Changed<MazeLevel<DIMS>>>,
+) {
+    for (entity, level, assets) in query.iter() {
         commands.entity(entity).despawn_descendants();
 
         commands.entity(entity).with_children(move |builder| {
@@ -316,46 +288,41 @@ fn level_generation_system(mut commands: Commands, query: Query<(Entity, &Level)
                     // borders
                     let lx = level.length_x() as f32;
                     let ly = level.length_y() as f32;
-                    builder.spawn_bundle(PbrBundle {
-                        mesh: level.wall.clone(),
-                        material: level.material.clone(),
-                        transform: Transform::from_xyz((lx / 2.0) - 0.5, 0.0, -0.5)
-                            .with_scale(Vec3::new(1.0, 1.0, lx))
-                            .with_rotation(Quat::from_rotation_y(PI / 2.0)),
-                        ..Default::default()
-                    });
-                    builder.spawn_bundle(PbrBundle {
-                        mesh: level.wall.clone(),
-                        material: level.material.clone(),
-                        transform: Transform::from_xyz((lx / 2.0) - 0.5, 0.0, ly - 0.5)
-                            .with_scale(Vec3::new(1.0, 1.0, lx))
-                            .with_rotation(Quat::from_rotation_y(PI / 2.0)),
-                        ..Default::default()
-                    });
-                    builder.spawn_bundle(PbrBundle {
-                        mesh: level.wall.clone(),
-                        material: level.material.clone(),
-                        transform: Transform::from_xyz(-0.5, 0.0, (ly / 2.0) - 0.5)
-                            .with_scale(Vec3::new(1.0, 1.0, ly)),
-                        ..Default::default()
-                    });
-                    builder.spawn_bundle(PbrBundle {
-                        mesh: level.wall.clone(),
-                        material: level.material.clone(),
-                        transform: Transform::from_xyz(lx - 0.5, 0.0, (ly / 2.0) - 0.5)
-                            .with_scale(Vec3::new(1.0, 1.0, ly)),
-                        ..Default::default()
-                    });
+                    builder.spawn_bundle(
+                        assets.wall(
+                            Transform::from_xyz((lx / 2.0) - 0.5, 0.0, -0.5)
+                                .with_scale(Vec3::new(1.0, 1.0, lx))
+                                .with_rotation(Quat::from_rotation_y(PI / 2.0)),
+                        ),
+                    );
+                    builder.spawn_bundle(
+                        assets.wall(
+                            Transform::from_xyz((lx / 2.0) - 0.5, 0.0, ly - 0.5)
+                                .with_scale(Vec3::new(1.0, 1.0, lx))
+                                .with_rotation(Quat::from_rotation_y(PI / 2.0)),
+                        ),
+                    );
+                    builder.spawn_bundle(
+                        assets.wall(
+                            Transform::from_xyz(-0.5, 0.0, (ly / 2.0) - 0.5)
+                                .with_scale(Vec3::new(1.0, 1.0, ly)),
+                        ),
+                    );
+                    builder.spawn_bundle(
+                        assets.wall(
+                            Transform::from_xyz(lx - 0.5, 0.0, (ly / 2.0) - 0.5)
+                                .with_scale(Vec3::new(1.0, 1.0, ly)),
+                        ),
+                    );
 
                     // joints
                     for x in 0..level.length_x() + 1 {
                         for y in 0..level.length_y() + 1 {
-                            builder.spawn_bundle(PbrBundle {
-                                mesh: level.joint.clone(),
-                                material: level.material.clone(),
-                                transform: Transform::from_xyz(x as f32 - 0.5, 0.0, y as f32 - 0.5),
-                                ..Default::default()
-                            });
+                            builder.spawn_bundle(assets.joint(Transform::from_xyz(
+                                x as f32 - 0.5,
+                                0.0,
+                                y as f32 - 0.5,
+                            )));
                         }
                     }
 
@@ -369,13 +336,11 @@ fn level_generation_system(mut commands: Commands, query: Query<(Entity, &Level)
                             Quat::from_rotation_y(PI / 2.0)
                         };
                         let position = p1.lerp(p2, 0.5);
-                        builder.spawn_bundle(PbrBundle {
-                            mesh: level.wall.clone(),
-                            material: level.material.clone(),
-                            transform: Transform::from_translation(position)
-                                .with_rotation(rotation),
-                            ..Default::default()
-                        });
+                        builder.spawn_bundle(
+                            assets.wall(
+                                Transform::from_translation(position).with_rotation(rotation),
+                            ),
+                        );
                     });
                 });
         });

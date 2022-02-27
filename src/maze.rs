@@ -9,6 +9,15 @@ pub struct Maze<const DIMS: usize> {
     lengths: [usize; DIMS],
 }
 
+impl<const DIMS: usize> Default for Maze<DIMS> {
+    fn default() -> Self {
+        Self {
+            walks: Default::default(),
+            lengths: [1; DIMS],
+        }
+    }
+}
+
 impl<const DIMS: usize> Maze<DIMS> {
     // Generate a maze with the provided number of side lengths.
     pub fn new(lengths: &[usize; DIMS], rng: &mut impl rand::Rng) -> Maze<DIMS> {
