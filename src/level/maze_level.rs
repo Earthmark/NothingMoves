@@ -109,9 +109,7 @@ impl<const DIMS: usize> MazeLevel<DIMS> {
         self.maze.lengths().get(dim).copied()
     }
 
-    pub fn iter_walls<'a>(
-        &'a self,
-    ) -> impl std::iter::Iterator<Item = ([usize; 2], [usize; 2])> + 'a {
+    pub fn iter_walls(&self) -> impl std::iter::Iterator<Item = ([usize; 2], [usize; 2])> + '_ {
         let length_x = self.length_x();
         let length_y = self.length_y();
         let position = self.position;
@@ -135,6 +133,6 @@ impl<const DIMS: usize> MazeLevel<DIMS> {
                     },
                 ]
             })
-            .filter_map(|pair| pair)
+            .flatten()
     }
 }
