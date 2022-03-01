@@ -13,7 +13,11 @@ fn main() {
         .run();
 }
 
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn setup(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    mut maze_spawner: EventWriter<level::LoadLevel>,
+) {
     commands.spawn_bundle(OrthographicCameraBundle::new_2d());
     commands.spawn_bundle(SpriteBundle {
         texture: asset_server.load("textures/icon.png"),
@@ -30,16 +34,13 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     });
 
     commands.spawn_bundle(PerspectiveCameraBundle {
-        transform: Transform::from_xyz(11.0, 30.0, 10.0)
-            .looking_at(Vec3::new(10.0, 0.0, 10.0), Vec3::Y),
+        transform: Transform::from_xyz(4.0, 15.0, 7.0)
+            .looking_at(Vec3::new(3.0, 0.0, 7.0), Vec3::Y),
         ..Default::default()
     });
-
-    commands.spawn_bundle(level::LevelLoaderBundle {
-        level_loader: level::LevelLoader {
-            dimensions: level::DimensionLength::Three([4, 15, 5]),
-            ..Default::default()
-        },
+    commands.spawn_bundle(UiCameraBundle::default());
+    maze_spawner.send(level::LoadLevel {
+        dimensions: level::DimensionLength::Three([4, 15, 2]),
         ..Default::default()
     });
 }

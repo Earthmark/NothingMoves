@@ -3,7 +3,7 @@ use bevy::prelude::*;
 
 #[derive(Component)]
 pub struct MazeLevel<const DIMS: usize> {
-    position: [usize; DIMS],
+    position: [u8; DIMS],
     maze: maze::Maze<DIMS>,
     dim_x: usize,
     dim_y: usize,
@@ -15,6 +15,7 @@ pub enum FocusedAxis {
     Y,
 }
 
+#[derive(PartialEq)]
 pub enum Direction {
     Positive,
     Negative,
@@ -33,7 +34,7 @@ impl<const DIMS: usize> Default for MazeLevel<DIMS> {
 }
 
 impl<const DIMS: usize> MazeLevel<DIMS> {
-    pub fn new(lengths: &[usize; DIMS], rng: &mut impl rand::Rng) -> Self {
+    pub fn new(lengths: &[u8; DIMS], rng: &mut impl rand::Rng) -> Self {
         Self {
             maze: crate::maze::Maze::new(lengths, rng),
             ..Default::default()
@@ -84,16 +85,64 @@ impl<const DIMS: usize> MazeLevel<DIMS> {
 
     // assume dim_x and dim_y are both together.
     #[inline]
-    pub fn length_x(&self) -> usize {
+    pub fn length_x(&self) -> u8 {
         self.length_of_dim(self.dim_x).unwrap()
     }
 
     #[inline]
-    pub fn length_y(&self) -> usize {
+    pub fn length_y(&self) -> u8 {
         self.length_of_dim(self.dim_y).unwrap()
     }
 
-    fn should_make_wall(&self, position: &[usize; DIMS], direction: usize) -> bool {
+    pub fn x(&self) -> u8 {
+        self.position[self.dim_x]
+    }
+
+    pub fn move_x(&mut self, dir: Direction) {
+        let mut pos = self.position;
+        if dir == Direction::Negative {
+            if let Some(new_pos) = pos[self.dim_x].checked_sub(1) {
+                pos[self.dim_x] = new_pos;
+            } else {
+                return;
+            }
+        }
+        if let Some(true) = self.maze.can_move(&pos, self.dim_x) {
+            if let Some(new_pos) = if dir == Direction::Positive {
+                self.position[self.dim_x].checked_add(1)
+            } else {
+                self.position[self.dim_x].checked_sub(1)
+            } {
+                self.position[self.dim_x] = new_pos;
+            }
+        }
+    }
+
+    pub fn y(&self) -> u8 {
+        self.position[self.dim_y]
+    }
+
+    pub fn move_y(&mut self, dir: Direction) {
+        let mut pos = self.position;
+        if dir == Direction::Negative {
+            if let Some(new_pos) = pos[self.dim_y].checked_sub(1) {
+                pos[self.dim_y] = new_pos;
+            } else {
+                return;
+            }
+        }
+        if let Some(true) = self.maze.can_move(&pos, self.dim_y) {
+            if let Some(new_pos) = if dir == Direction::Positive {
+                self.position[self.dim_y].checked_add(1)
+            } else {
+                self.position[self.dim_y].checked_sub(1)
+            } {
+                self.position[self.dim_y] = new_pos;
+            }
+        }
+    }
+
+    fn should_make_wall(&self, position: &[u8; DIMS], direction: usize) -> bool {
         if let Some(walkable) = self.maze.can_move(position, direction) {
             !walkable
         } else {
@@ -105,11 +154,11 @@ impl<const DIMS: usize> MazeLevel<DIMS> {
         DIMS
     }
 
-    fn length_of_dim(&self, dim: usize) -> Option<usize> {
+    fn length_of_dim(&self, dim: usize) -> Option<u8> {
         self.maze.lengths().get(dim).copied()
     }
 
-    pub fn iter_walls(&self) -> impl std::iter::Iterator<Item = ([usize; 2], [usize; 2])> + '_ {
+    pub fn iter_walls(&self) -> impl std::iter::Iterator<Item = ([u8; 2], [u8; 2])> + '_ {
         let length_x = self.length_x();
         let length_y = self.length_y();
         let position = self.position;

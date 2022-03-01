@@ -1,10 +1,10 @@
 use bevy::prelude::*;
 use rand::prelude::*;
 
-use super::MazeLevel;
+use super::{maze_renderer::MazeAssets, MazeLevel};
 
-#[derive(Component, Clone, Debug)]
-pub struct LevelLoader {
+#[derive(Clone, Debug)]
+pub struct LoadLevel {
     pub rng_source: RngSource,
     pub dimensions: DimensionLength,
 }
@@ -18,14 +18,14 @@ pub enum RngSource {
 #[allow(dead_code)]
 #[derive(Clone, Debug)]
 pub enum DimensionLength {
-    Two([usize; 2]),
-    Three([usize; 3]),
-    Four([usize; 4]),
-    Five([usize; 5]),
-    Six([usize; 6]),
+    Two([u8; 2]),
+    Three([u8; 3]),
+    Four([u8; 4]),
+    Five([u8; 5]),
+    Six([u8; 6]),
 }
 
-impl Default for LevelLoader {
+impl Default for LoadLevel {
     fn default() -> Self {
         Self {
             rng_source: RngSource::Seeded(123456789),
@@ -34,19 +34,19 @@ impl Default for LevelLoader {
     }
 }
 
-#[derive(Default, Bundle)]
-pub struct LevelLoaderBundle {
-    pub level_loader: LevelLoader,
-    pub transform: Transform,
-    pub global_transform: GlobalTransform,
-}
-
 pub fn level_load_system(
     mut commands: Commands,
-    query: Query<(Entity, &LevelLoader), Added<LevelLoader>>,
+    mut events: EventReader<LoadLevel>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    assets: Res<AssetServer>,
 ) {
-    for (entity, level_loader) in query.iter() {
-        let mut entity = commands.entity(entity);
+    for level_loader in events.iter() {
+        let mut entity = commands.spawn();
+
+        entity
+            .insert(Transform::default())
+            .insert(GlobalTransform::default());
 
         let mut rng = match level_loader.rng_source {
             RngSource::Seeded(seed) => StdRng::seed_from_u64(seed),
@@ -58,5 +58,7 @@ pub fn level_load_system(
             DimensionLength::Five(lengths) => entity.insert(MazeLevel::new(&lengths, &mut rng)),
             DimensionLength::Six(lengths) => entity.insert(MazeLevel::new(&lengths, &mut rng)),
         };
+
+        entity.insert(MazeAssets::new(&mut meshes, &mut materials, &assets));
     }
 }
