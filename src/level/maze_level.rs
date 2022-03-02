@@ -7,18 +7,36 @@ pub struct MazeLevel<const DIMS: usize> {
     maze: maze::Maze<DIMS>,
     dim_x: usize,
     dim_y: usize,
-    axis: FocusedAxis,
 }
 
-pub enum FocusedAxis {
+#[derive(PartialEq, Eq, Clone, Copy)]
+pub enum Axis {
     X,
     Y,
 }
 
-#[derive(PartialEq)]
+impl Axis {
+    fn invert(&self) -> Axis {
+        match self {
+            Axis::X => Axis::Y,
+            Axis::Y => Axis::X,
+        }
+    }
+}
+
+#[derive(PartialEq, Eq, Clone, Copy)]
 pub enum Direction {
     Positive,
     Negative,
+}
+
+impl Direction {
+    fn shift_wrapped(&self, value: usize, limit: usize) -> usize {
+        (match self {
+            Direction::Positive => value.checked_add(1).unwrap_or(0),
+            Direction::Negative => value.checked_sub(1).unwrap_or(limit - 2),
+        } % (limit - 1))
+    }
 }
 
 impl<const DIMS: usize> Default for MazeLevel<DIMS> {
@@ -27,7 +45,6 @@ impl<const DIMS: usize> Default for MazeLevel<DIMS> {
             maze: Default::default(),
             dim_x: 0,
             dim_y: 1,
-            axis: FocusedAxis::X,
             position: [0; DIMS],
         }
     }
@@ -41,103 +58,67 @@ impl<const DIMS: usize> MazeLevel<DIMS> {
         }
     }
 
-    pub fn flip_axis(&mut self) {
-        match self.axis {
-            FocusedAxis::X => self.axis = FocusedAxis::Y,
-            FocusedAxis::Y => self.axis = FocusedAxis::X,
+    fn axis(&self, axis: Axis) -> usize {
+        match axis {
+            Axis::X => self.dim_x,
+            Axis::Y => self.dim_y,
         }
     }
 
-    fn axis_current(&self) -> usize {
-        match self.axis {
-            FocusedAxis::X => self.dim_x,
-            FocusedAxis::Y => self.dim_y,
+    fn axis_mut(&mut self, axis: Axis) -> &mut usize {
+        match axis {
+            Axis::X => &mut self.dim_x,
+            Axis::Y => &mut self.dim_y,
         }
     }
 
-    pub fn off_axis_shift(&mut self, dir: Direction) {
-        let current = match self.axis {
-            FocusedAxis::X => self.dim_y,
-            FocusedAxis::Y => self.dim_x,
-        };
+    pub fn shift_axis(&mut self, axis: Axis, dir: Direction) {
+        let target_axis = self.axis(axis);
+        let off_target_axis = self.axis(axis.invert());
 
-        let linear_current = if current > self.axis_current() {
-            current - 1
+        let linear_current = if target_axis > off_target_axis {
+            target_axis - 1
         } else {
-            current
+            target_axis
         };
 
-        let new_off_axis = match dir {
-            Direction::Positive => linear_current.checked_add(1).unwrap_or(0),
-            Direction::Negative => linear_current.checked_sub(1).unwrap_or(self.dims() - 2),
-        } % (self.dims() - 1);
-        let dest = if new_off_axis >= self.axis_current() {
+        let new_off_axis = dir.shift_wrapped(linear_current, self.dims());
+        let dest = if new_off_axis >= off_target_axis {
             new_off_axis + 1
         } else {
             new_off_axis
         };
 
-        match self.axis {
-            FocusedAxis::X => self.dim_y = dest,
-            FocusedAxis::Y => self.dim_x = dest,
-        };
+        *self.axis_mut(axis) = dest;
     }
 
     // assume dim_x and dim_y are both together.
     #[inline]
-    pub fn length_x(&self) -> u8 {
-        self.length_of_dim(self.dim_x).unwrap()
+    pub fn pos_limit(&self, axis: Axis) -> u8 {
+        self.length_of_dim(self.axis(axis)).unwrap()
     }
 
-    #[inline]
-    pub fn length_y(&self) -> u8 {
-        self.length_of_dim(self.dim_y).unwrap()
+    pub fn pos(&self, axis: Axis) -> u8 {
+        self.position[self.axis(axis)]
     }
 
-    pub fn x(&self) -> u8 {
-        self.position[self.dim_x]
-    }
-
-    pub fn move_x(&mut self, dir: Direction) {
+    pub fn move_pos(&mut self, axis: Axis, dir: Direction) {
+        let dim = self.axis(axis);
         let mut pos = self.position;
         if dir == Direction::Negative {
-            if let Some(new_pos) = pos[self.dim_x].checked_sub(1) {
-                pos[self.dim_x] = new_pos;
+            if let Some(new_pos) = pos[dim].checked_sub(1) {
+                pos[dim] = new_pos;
             } else {
                 return;
             }
         }
-        if let Some(true) = self.maze.can_move(&pos, self.dim_x) {
+        if let Some(true) = self.maze.can_move(&pos, dim) {
             if let Some(new_pos) = if dir == Direction::Positive {
-                self.position[self.dim_x].checked_add(1)
+                self.position[dim].checked_add(1)
             } else {
-                self.position[self.dim_x].checked_sub(1)
+                self.position[dim].checked_sub(1)
             } {
-                self.position[self.dim_x] = new_pos;
-            }
-        }
-    }
-
-    pub fn y(&self) -> u8 {
-        self.position[self.dim_y]
-    }
-
-    pub fn move_y(&mut self, dir: Direction) {
-        let mut pos = self.position;
-        if dir == Direction::Negative {
-            if let Some(new_pos) = pos[self.dim_y].checked_sub(1) {
-                pos[self.dim_y] = new_pos;
-            } else {
-                return;
-            }
-        }
-        if let Some(true) = self.maze.can_move(&pos, self.dim_y) {
-            if let Some(new_pos) = if dir == Direction::Positive {
-                self.position[self.dim_y].checked_add(1)
-            } else {
-                self.position[self.dim_y].checked_sub(1)
-            } {
-                self.position[self.dim_y] = new_pos;
+                self.position[dim] = new_pos;
             }
         }
     }
@@ -159,8 +140,8 @@ impl<const DIMS: usize> MazeLevel<DIMS> {
     }
 
     pub fn iter_walls(&self) -> impl std::iter::Iterator<Item = ([u8; 2], [u8; 2])> + '_ {
-        let length_x = self.length_x();
-        let length_y = self.length_y();
+        let length_x = self.pos_limit(Axis::X);
+        let length_y = self.pos_limit(Axis::Y);
         let position = self.position;
 
         (0..length_x)

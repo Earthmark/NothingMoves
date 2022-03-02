@@ -8,6 +8,7 @@ use bevy::prelude::*;
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
+        .add_plugin(bevy_tweening::TweeningPlugin)
         .add_plugin(level::LevelPlugin)
         .add_startup_system(setup)
         .run();
@@ -34,8 +35,8 @@ fn setup(
     });
 
     commands.spawn_bundle(PerspectiveCameraBundle {
-        transform: Transform::from_xyz(4.0, 15.0, 7.0)
-            .looking_at(Vec3::new(3.0, 0.0, 7.0), Vec3::Y),
+        transform: Transform::from_xyz(-6.0, 10.0, -4.0)
+            .looking_at(Vec3::new(2.0, 0.0, 2.0), Vec3::Y),
         ..Default::default()
     });
     commands.spawn_bundle(UiCameraBundle::default());

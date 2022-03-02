@@ -1,6 +1,6 @@
 use std::f32::consts::PI;
 
-use super::MazeLevel;
+use super::maze_level;
 use bevy::prelude::*;
 
 #[derive(Component)]
@@ -62,7 +62,10 @@ impl MazeAssets {
 
 pub fn maze_level_renderer<const DIMS: usize>(
     mut commands: Commands,
-    query: Query<(Entity, &MazeLevel<DIMS>, &MazeAssets), Changed<MazeLevel<DIMS>>>,
+    query: Query<
+        (Entity, &maze_level::MazeLevel<DIMS>, &MazeAssets),
+        Changed<maze_level::MazeLevel<DIMS>>,
+    >,
 ) {
     for (entity, level, assets) in query.iter() {
         commands.entity(entity).despawn_descendants();
@@ -100,14 +103,21 @@ pub fn maze_level_renderer<const DIMS: usize>(
                     });
             */
 
+            // player
+            builder.spawn_bundle(assets.player(Transform::default()));
+
             builder
                 .spawn()
-                .insert(Transform::default())
+                .insert(Transform::from_xyz(
+                    -(level.pos(maze_level::Axis::X) as f32),
+                    0.0,
+                    -(level.pos(maze_level::Axis::Y) as f32),
+                ))
                 .insert(GlobalTransform::default())
                 .with_children(|builder| {
                     // borders
-                    let lx = level.length_x() as f32;
-                    let ly = level.length_y() as f32;
+                    let lx = level.pos_limit(maze_level::Axis::X) as f32;
+                    let ly = level.pos_limit(maze_level::Axis::Y) as f32;
                     builder.spawn_bundle(
                         assets.wall(
                             Transform::from_xyz((lx / 2.0) - 0.5, 0.0, -0.5)
@@ -136,8 +146,8 @@ pub fn maze_level_renderer<const DIMS: usize>(
                     );
 
                     // joints
-                    for x in 0..level.length_x() + 1 {
-                        for y in 0..level.length_y() + 1 {
+                    for x in 0..level.pos_limit(maze_level::Axis::X) + 1 {
+                        for y in 0..level.pos_limit(maze_level::Axis::Y) + 1 {
                             builder.spawn_bundle(assets.joint(Transform::from_xyz(
                                 x as f32 - 0.5,
                                 0.0,
@@ -162,13 +172,6 @@ pub fn maze_level_renderer<const DIMS: usize>(
                             ),
                         );
                     }
-
-                    // player
-                    builder.spawn_bundle(assets.player(Transform::from_xyz(
-                        level.x() as f32,
-                        0.0,
-                        level.y() as f32,
-                    )));
                 });
         });
     }
