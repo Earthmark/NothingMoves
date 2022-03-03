@@ -5,17 +5,26 @@ use std::{
 };
 
 pub struct Maze<const DIMS: usize> {
-    walks: HashSet<([usize; DIMS], [usize; DIMS])>,
-    lengths: [usize; DIMS],
+    walks: HashSet<([u8; DIMS], [u8; DIMS])>,
+    lengths: [u8; DIMS],
+}
+
+impl<const DIMS: usize> Default for Maze<DIMS> {
+    fn default() -> Self {
+        Self {
+            walks: Default::default(),
+            lengths: [1; DIMS],
+        }
+    }
 }
 
 impl<const DIMS: usize> Maze<DIMS> {
     // Generate a maze with the provided number of side lengths.
-    pub fn new(lengths: &[usize; DIMS], rng: &mut impl rand::Rng) -> Maze<DIMS> {
-        let cell_count = lengths.iter().product();
+    pub fn new(lengths: &[u8; DIMS], rng: &mut impl rand::Rng) -> Maze<DIMS> {
+        let cell_count = lengths.iter().map(|f| *f as usize).product();
 
         // Indexed by dimension sums (higher is higher power).
-        let mut cells = HashMap::<[usize; DIMS], MazeGenCellRef>::with_capacity(cell_count);
+        let mut cells = HashMap::<[u8; DIMS], MazeGenCellRef>::with_capacity(cell_count);
         for index in 0..cell_count {
             let pos = unwrap_index(lengths, index).unwrap();
             cells.insert(pos, MazeGenCell::new(index));
@@ -57,7 +66,7 @@ impl<const DIMS: usize> Maze<DIMS> {
         }
     }
 
-    fn check_pair(&self, a: &[usize; DIMS], b: &[usize; DIMS]) -> Option<bool> {
+    fn check_pair(&self, a: &[u8; DIMS], b: &[u8; DIMS]) -> Option<bool> {
         for index in 0..DIMS {
             let length = self.lengths[index];
             if a[index] >= length || b[index] >= length {
@@ -70,7 +79,7 @@ impl<const DIMS: usize> Maze<DIMS> {
         Some(self.walks.contains(&(*a, *b)) || self.walks.contains(&(*b, *a)))
     }
 
-    pub fn can_move(&self, point: &[usize; DIMS], dimension: usize) -> Option<bool> {
+    pub fn can_move(&self, point: &[u8; DIMS], dimension: usize) -> Option<bool> {
         let mut target_point = *point;
         if let Some(shift_axis) = target_point.get_mut(dimension) {
             if let Some(new_shifted) = shift_axis.checked_add(1) {
@@ -82,7 +91,7 @@ impl<const DIMS: usize> Maze<DIMS> {
     }
 
     #[inline]
-    pub fn lengths(&self) -> &[usize; DIMS] {
+    pub fn lengths(&self) -> &[u8; DIMS] {
         &self.lengths
     }
 }
@@ -125,12 +134,12 @@ impl MazeGenCell {
     }
 }
 
-fn unwrap_index<const DIMS: usize>(lengths: &[usize; DIMS], index: usize) -> Option<[usize; DIMS]> {
+fn unwrap_index<const DIMS: usize>(lengths: &[u8; DIMS], index: usize) -> Option<[u8; DIMS]> {
     let mut result = [0; DIMS];
     let mut remaining_index = index;
     for (length, res) in lengths.iter().zip(result.iter_mut()) {
-        *res = remaining_index % length;
-        remaining_index /= length;
+        *res = (remaining_index % (*length as usize)) as u8;
+        remaining_index /= *length as usize;
     }
     if remaining_index == 0 {
         Some(result)
@@ -184,7 +193,7 @@ mod tests {
         let mut rng = StdRng::seed_from_u64(684153987);
         let maze = Maze::new(&[5, 5, 5, 5, 5], &mut rng);
 
-        assert_eq!(maze.can_move(&[1, 2, 3214, 2, 2], 2), None);
+        assert_eq!(maze.can_move(&[1, 2, 52, 2, 2], 2), None);
     }
 
     #[test]
