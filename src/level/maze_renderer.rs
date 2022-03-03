@@ -3,6 +3,7 @@ use std::f32::consts::PI;
 use super::maze_level;
 use bevy::prelude::*;
 
+#[allow(dead_code)]
 #[derive(Component)]
 pub struct MazeAssets {
     joint: Handle<Mesh>,
