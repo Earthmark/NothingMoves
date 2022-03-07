@@ -3,10 +3,23 @@ use bevy::prelude::*;
 
 #[derive(Component)]
 pub struct MazeLevel<const DIMS: usize> {
-    position: [u8; DIMS],
     maze: maze::Maze<DIMS>,
-    dim_x: usize,
-    dim_y: usize,
+    position: [u8; DIMS],
+    axis: [u8; 2],
+}
+
+#[derive(Clone, Debug)]
+pub struct AxisChanged {
+    pub level: Entity,
+    pub old_axis: [u8; 2],
+    pub axis: [u8; 2],
+}
+
+#[derive(Clone, Debug)]
+pub struct PositionChanged<const DIMS: usize> {
+    pub level: Entity,
+    pub old_position: [u8; DIMS],
+    pub position: [u8; DIMS],
 }
 
 #[derive(PartialEq, Eq, Clone, Copy)]
@@ -16,10 +29,23 @@ pub enum Axis {
 }
 
 impl Axis {
-    fn invert(&self) -> Axis {
+    pub fn invert(&self) -> Axis {
         match self {
             Axis::X => Axis::Y,
             Axis::Y => Axis::X,
+        }
+    }
+
+    pub fn get<'a, T>(&self, v: &'a [T; 2]) -> &'a T {
+        match self {
+            Axis::X => &v[0],
+            Axis::Y => &v[1],
+        }
+    }
+    pub fn get_mut<'a, T>(&self, v: &'a mut [T; 2]) -> &'a mut T {
+        match self {
+            Axis::X => &mut v[0],
+            Axis::Y => &mut v[1],
         }
     }
 }
@@ -31,7 +57,7 @@ pub enum Direction {
 }
 
 impl Direction {
-    fn shift_wrapped(&self, value: usize, limit: usize) -> usize {
+    fn shift_wrapped(&self, value: u8, limit: u8) -> u8 {
         (match self {
             Direction::Positive => value.checked_add(1).unwrap_or(0),
             Direction::Negative => value.checked_sub(1).unwrap_or(limit - 2),
@@ -43,8 +69,7 @@ impl<const DIMS: usize> Default for MazeLevel<DIMS> {
     fn default() -> Self {
         Self {
             maze: Default::default(),
-            dim_x: 0,
-            dim_y: 1,
+            axis: [0, 1],
             position: [0; DIMS],
         }
     }
@@ -57,24 +82,20 @@ impl<const DIMS: usize> MazeLevel<DIMS> {
             ..Default::default()
         }
     }
+}
 
-    fn axis(&self, axis: Axis) -> usize {
-        match axis {
-            Axis::X => self.dim_x,
-            Axis::Y => self.dim_y,
-        }
+impl<const DIMS: usize> MazeView for MazeLevel<DIMS> {
+    fn dims(&self) -> &[u8] {
+        self.maze.lengths()
     }
 
-    fn axis_mut(&mut self, axis: Axis) -> &mut usize {
-        match axis {
-            Axis::X => &mut self.dim_x,
-            Axis::Y => &mut self.dim_y,
-        }
+    fn axis(&self) -> [u8; 2] {
+        self.axis
     }
 
-    pub fn shift_axis(&mut self, axis: Axis, dir: Direction) {
-        let target_axis = self.axis(axis);
-        let off_target_axis = self.axis(axis.invert());
+    fn shift_axis(&mut self, axis: Axis, dir: Direction) {
+        let target_axis = *axis.get(&self.axis());
+        let off_target_axis = *axis.invert().get(&self.axis());
 
         let linear_current = if target_axis > off_target_axis {
             target_axis - 1
@@ -82,28 +103,34 @@ impl<const DIMS: usize> MazeLevel<DIMS> {
             target_axis
         };
 
-        let new_off_axis = dir.shift_wrapped(linear_current, self.dims());
+        let new_off_axis = dir.shift_wrapped(linear_current, DIMS as u8);
         let dest = if new_off_axis >= off_target_axis {
             new_off_axis + 1
         } else {
             new_off_axis
         };
 
-        *self.axis_mut(axis) = dest;
+        *axis.get_mut(&mut self.axis) = dest;
     }
 
     // assume dim_x and dim_y are both together.
     #[inline]
-    pub fn pos_limit(&self, axis: Axis) -> u8 {
-        self.length_of_dim(self.axis(axis)).unwrap()
+    fn pos_limit(&self) -> [u8; 2] {
+        [
+            self.maze.lengths()[self.axis[0] as usize],
+            self.maze.lengths()[self.axis[1] as usize],
+        ]
     }
 
-    pub fn pos(&self, axis: Axis) -> u8 {
-        self.position[self.axis(axis)]
+    fn pos(&self) -> [u8; 2] {
+        [
+            self.position[self.axis[0] as usize],
+            self.position[self.axis[1] as usize],
+        ]
     }
 
-    pub fn move_pos(&mut self, axis: Axis, dir: Direction) {
-        let dim = self.axis(axis);
+    fn move_pos(&mut self, axis: Axis, dir: Direction) {
+        let dim = *axis.get(&self.axis) as usize;
         let mut pos = self.position;
         if dir == Direction::Negative {
             if let Some(new_pos) = pos[dim].checked_sub(1) {
@@ -123,46 +150,51 @@ impl<const DIMS: usize> MazeLevel<DIMS> {
         }
     }
 
-    fn should_make_wall(&self, position: &[u8; DIMS], direction: usize) -> bool {
-        if let Some(walkable) = self.maze.can_move(position, direction) {
+    fn should_make_wall(&self, position: [u8; 2], axis: Axis) -> bool {
+        let mut cursor = self.position;
+        cursor[self.axis[0] as usize] = position[0];
+        cursor[self.axis[1] as usize] = position[1];
+        if let Some(walkable) = self.maze.can_move(&cursor, *axis.get(&self.axis) as usize) {
             !walkable
         } else {
             false
         }
     }
+}
 
-    fn dims(&self) -> usize {
-        DIMS
-    }
+pub trait MazeView {
+    fn dims(&self) -> &[u8];
 
-    fn length_of_dim(&self, dim: usize) -> Option<u8> {
-        self.maze.lengths().get(dim).copied()
-    }
+    fn axis(&self) -> [u8; 2];
+    fn shift_axis(&mut self, axis: Axis, dir: Direction);
 
-    pub fn iter_walls(&self) -> impl std::iter::Iterator<Item = ([u8; 2], [u8; 2])> + '_ {
-        let length_x = self.pos_limit(Axis::X);
-        let length_y = self.pos_limit(Axis::Y);
-        let position = self.position;
+    fn pos_limit(&self) -> [u8; 2];
+    fn pos(&self) -> [u8; 2];
+    fn move_pos(&mut self, axis: Axis, dir: Direction);
 
-        (0..length_x)
-            .flat_map(move |x| (0..length_y).map(move |y| (x, y)))
-            .flat_map(move |(cursor_x, cursor_y)| {
-                let mut cursor = position;
-                cursor[self.dim_x] = cursor_x;
-                cursor[self.dim_y] = cursor_y;
-                [
-                    if self.should_make_wall(&cursor, self.dim_x) {
-                        Some(([cursor_x, cursor_y], [cursor_x + 1, cursor_y]))
-                    } else {
-                        None
-                    },
-                    if self.should_make_wall(&cursor, self.dim_y) {
-                        Some(([cursor_x, cursor_y], [cursor_x, cursor_y + 1]))
-                    } else {
-                        None
-                    },
-                ]
-            })
-            .flatten()
-    }
+    fn should_make_wall(&self, position: [u8; 2], axis: Axis) -> bool;
+}
+
+pub fn iter_walls(
+    maze: &impl MazeView,
+) -> impl std::iter::Iterator<Item = ([u8; 2], [u8; 2])> + '_ {
+    let [length_x, length_y] = maze.pos_limit();
+
+    (0..length_x)
+        .flat_map(move |x| (0..length_y).map(move |y| [x, y]))
+        .flat_map(move |cursor| {
+            [
+                if maze.should_make_wall(cursor, Axis::X) {
+                    Some((cursor, [cursor[0] + 1, cursor[1]]))
+                } else {
+                    None
+                },
+                if maze.should_make_wall(cursor, Axis::Y) {
+                    Some((cursor, [cursor[0], cursor[1] + 1]))
+                } else {
+                    None
+                },
+            ]
+        })
+        .flatten()
 }

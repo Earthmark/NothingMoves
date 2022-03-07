@@ -1,6 +1,7 @@
-use bevy::prelude::*;
+use bevy::prelude::{Input, KeyCode, Query, Res};
 
-use super::maze_level::{Axis, Direction, MazeLevel};
+use super::maze_level::*;
+use super::maze_level::{Axis, Direction};
 
 pub fn level_navigation<const DIMS: usize>(
     mut query: Query<&mut MazeLevel<DIMS>>,
