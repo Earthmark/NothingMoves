@@ -8,7 +8,6 @@ use bevy::prelude::*;
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_plugin(bevy_tweening::TweeningPlugin)
         .add_plugin(level::LevelPlugin)
         .add_startup_system(setup)
         .run();

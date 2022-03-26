@@ -3,6 +3,27 @@ use std::f32::consts::PI;
 use super::maze_level::*;
 use bevy::prelude::*;
 
+pub fn spawn_ui<const DIMS: usize>(
+    mut commands: Commands,
+    query: Query<(Entity, &MazeLevel<DIMS>), Added<MazeLevel<DIMS>>>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+) {
+    for (entity, _maze) in query.iter() {
+        commands.spawn_bundle(MazeRendererBundle {
+            renderer: MazeRenderer {
+                level: entity,
+                last_dims: [0, 0],
+                joint: meshes.add(Mesh::from(shape::Box::new(0.2, 1.0, 0.2))),
+                wall: meshes.add(Mesh::from(shape::Box::new(0.1, 0.6, 1.0))),
+                material: materials.add(Color::rgb(0.8, 0.7, 0.6).into()),
+            },
+            transform: Default::default(),
+            global_transform: Default::default(),
+        });
+    }
+}
+
 #[derive(Bundle)]
 pub struct MazeRendererBundle {
     pub renderer: MazeRenderer,
@@ -17,30 +38,9 @@ pub struct MazeRenderer {
     joint: Handle<Mesh>,
     wall: Handle<Mesh>,
     material: Handle<StandardMaterial>,
-    player: Handle<Mesh>,
-    player_material: Handle<StandardMaterial>,
 }
 
 impl MazeRenderer {
-    pub fn new(
-        level: Entity,
-        meshes: &mut Assets<Mesh>,
-        materials: &mut Assets<StandardMaterial>,
-    ) -> Self {
-        Self {
-            level,
-            last_dims: [0, 0],
-            joint: meshes.add(Mesh::from(shape::Box::new(0.2, 1.0, 0.2))),
-            wall: meshes.add(Mesh::from(shape::Box::new(0.1, 0.6, 1.0))),
-            material: materials.add(Color::rgb(0.8, 0.7, 0.6).into()),
-            player: meshes.add(Mesh::from(shape::Capsule {
-                radius: 0.5,
-                ..Default::default()
-            })),
-            player_material: materials.add(Color::rgb(0.3, 0.3, 0.8).into()),
-        }
-    }
-
     fn wall(&self, transform: Transform) -> PbrBundle {
         PbrBundle {
             mesh: self.wall.clone(),
@@ -54,15 +54,6 @@ impl MazeRenderer {
         PbrBundle {
             mesh: self.joint.clone(),
             material: self.material.clone(),
-            transform,
-            ..Default::default()
-        }
-    }
-
-    fn player(&self, transform: Transform) -> PbrBundle {
-        PbrBundle {
-            mesh: self.player.clone(),
-            material: self.player_material.clone(),
             transform,
             ..Default::default()
         }
