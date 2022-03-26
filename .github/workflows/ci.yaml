@@ -18,6 +18,8 @@ jobs:
     steps:
       - name: Checkout sources
         uses: actions/checkout@v2
+        with:
+          lfs: 'true'
       - name: Cache
         uses: actions/cache@v2
         with:
@@ -48,6 +50,8 @@ jobs:
     steps:
       - name: Checkout sources
         uses: actions/checkout@v2
+        with:
+          lfs: 'true'
       - name: Cache
         uses: actions/cache@v2
         with:
@@ -80,6 +84,8 @@ jobs:
     steps:
       - name: Checkout sources
         uses: actions/checkout@v2
+        with:
+          lfs: 'true'
       - name: Install stable toolchain
         uses: actions-rs/toolchain@v1
         with:
