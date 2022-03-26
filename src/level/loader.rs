@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use rand::prelude::*;
 
-use super::{maze_renderer::MazeAssets, MazeLevel};
+use super::MazeLevel;
 
 #[derive(Clone, Debug)]
 pub struct LoadLevel {
@@ -34,31 +34,27 @@ impl Default for LoadLevel {
     }
 }
 
-pub fn level_load_system(
-    mut commands: Commands,
-    mut events: EventReader<LoadLevel>,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-    assets: Res<AssetServer>,
-) {
+pub fn level_load_system(mut commands: Commands, mut events: EventReader<LoadLevel>) {
     for level_loader in events.iter() {
-        let mut entity = commands.spawn();
-
-        entity
-            .insert(Transform::default())
-            .insert(GlobalTransform::default());
-
         let mut rng = match level_loader.rng_source {
             RngSource::Seeded(seed) => StdRng::seed_from_u64(seed),
         };
         match level_loader.dimensions {
-            DimensionLength::Two(lengths) => entity.insert(MazeLevel::new(&lengths, &mut rng)),
-            DimensionLength::Three(lengths) => entity.insert(MazeLevel::new(&lengths, &mut rng)),
-            DimensionLength::Four(lengths) => entity.insert(MazeLevel::new(&lengths, &mut rng)),
-            DimensionLength::Five(lengths) => entity.insert(MazeLevel::new(&lengths, &mut rng)),
-            DimensionLength::Six(lengths) => entity.insert(MazeLevel::new(&lengths, &mut rng)),
+            DimensionLength::Two(lengths) => {
+                commands.spawn().insert(MazeLevel::new(&lengths, &mut rng))
+            }
+            DimensionLength::Three(lengths) => {
+                commands.spawn().insert(MazeLevel::new(&lengths, &mut rng))
+            }
+            DimensionLength::Four(lengths) => {
+                commands.spawn().insert(MazeLevel::new(&lengths, &mut rng))
+            }
+            DimensionLength::Five(lengths) => {
+                commands.spawn().insert(MazeLevel::new(&lengths, &mut rng))
+            }
+            DimensionLength::Six(lengths) => {
+                commands.spawn().insert(MazeLevel::new(&lengths, &mut rng))
+            }
         };
-
-        entity.insert(MazeAssets::new(&mut meshes, &mut materials, &assets));
     }
 }
