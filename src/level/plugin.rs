@@ -24,9 +24,9 @@ impl<const DIMS: usize> Plugin for SingleDimMazePlugin<DIMS> {
             .add_event::<maze_level::PositionChanged<DIMS>>()
             .add_system(maze_renderer::spawn_ui::<DIMS>)
             .add_system(maze_ui_renderer::spawn_ui::<DIMS>)
-            .add_system(maze_ui_renderer::maze_selected_axis_visibility_hider_updater)
             .add_system(maze_ui_renderer::maze_axis_label_update_listener::<DIMS>)
             .add_system(maze_ui_renderer::maze_position_label_update_listener::<DIMS>)
+            .add_system(loader::initial_events_on_load::<DIMS>)
             .add_system(maze_renderer::update_maze_offset::<DIMS>)
             .add_system(input::level_navigation::<DIMS>);
     }

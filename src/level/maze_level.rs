@@ -4,21 +4,19 @@ use bevy::prelude::*;
 #[derive(Component)]
 pub struct MazeLevel<const DIMS: usize> {
     maze: maze::Maze<DIMS>,
-    position: [u8; DIMS],
-    axis: [u8; 2],
+    pub position: [u8; DIMS],
+    pub axis: [u8; 2],
 }
 
 #[derive(Clone, Debug)]
 pub struct AxisChanged {
     pub level: Entity,
-    pub old_axis: [u8; 2],
     pub axis: [u8; 2],
 }
 
 #[derive(Clone, Debug)]
 pub struct PositionChanged<const DIMS: usize> {
     pub level: Entity,
-    pub old_position: [u8; DIMS],
     pub position: [u8; DIMS],
 }
 

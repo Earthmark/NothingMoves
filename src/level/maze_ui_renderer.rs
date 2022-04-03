@@ -32,10 +32,10 @@ use bevy::prelude::*;
 
 pub fn spawn_ui<const DIMS: usize>(
     mut c: Commands,
-    query: Query<&MazeLevel<DIMS>, Added<MazeLevel<DIMS>>>,
+    query: Query<(Entity, &MazeLevel<DIMS>), Added<MazeLevel<DIMS>>>,
     assets: Res<AssetServer>,
 ) {
-    for _maze in query.iter() {
+    for (level, maze) in query.iter() {
         info!("Added maze");
         let style = TextStyle {
             font: assets.load("fonts\\UnicaOne-Regular.ttf"),
@@ -43,37 +43,27 @@ pub fn spawn_ui<const DIMS: usize>(
             ..Default::default()
         };
 
-        let label = |s: &'static str| TextBundle {
-            text: Text::with_section(s, style.clone(), Default::default()),
+        let label = |s: &str| TextBundle {
+            text: Text::with_section(
+                s,
+                style.clone(),
+                TextAlignment {
+                    vertical: VerticalAlign::Center,
+                    horizontal: HorizontalAlign::Center,
+                },
+            ),
             style: Style {
-                flex_grow: 1.0,
+                size: Size::new(Val::Auto, Val::Px(50.0)),
                 ..Default::default()
             },
             ..Default::default()
         };
 
-        fn row() -> NodeBundle {
-            NodeBundle {
-                style: Style {
-                    flex_direction: FlexDirection::Row,
-                    justify_content: JustifyContent::SpaceBetween,
-                    align_content: AlignContent::Stretch,
-                    position: Rect::all(Val::Auto),
-                    margin: Rect::all(Val::Auto),
-                    ..Default::default()
-                },
-                color: Color::NONE.into(),
-                ..Default::default()
-            }
-        }
-
         fn column() -> NodeBundle {
             NodeBundle {
                 style: Style {
-                    flex_direction: FlexDirection::ColumnReverse,
-                    align_content: AlignContent::Stretch,
-                    position: Rect::all(Val::Auto),
-                    margin: Rect::all(Val::Auto),
+                    flex_direction: FlexDirection::Column,
+                    justify_content: JustifyContent::SpaceEvenly,
                     ..Default::default()
                 },
                 color: Color::NONE.into(),
@@ -81,109 +71,108 @@ pub fn spawn_ui<const DIMS: usize>(
             }
         }
 
+        let dimension_col = |dimension: usize| {
+            move |c: &mut ChildBuilder| {
+                c.spawn_bundle(label("S")).insert(MazeAxisLabel::<DIMS> {
+                    level,
+                    axis: Axis::X,
+                    dim: dimension as u8,
+                });
+                c.spawn_bundle(label("A")).insert(MazeAxisLabel::<DIMS> {
+                    level,
+                    axis: Axis::Y,
+                    dim: dimension as u8,
+                });
+                c.spawn_bundle(label("#"))
+                    .insert(MazePositionLabel::<DIMS> { level, dimension });
+                c.spawn_bundle(label("W")).insert(MazeAxisLabel::<DIMS> {
+                    level,
+                    axis: Axis::X,
+                    dim: dimension as u8,
+                });
+                c.spawn_bundle(label("D")).insert(MazeAxisLabel::<DIMS> {
+                    level,
+                    axis: Axis::Y,
+                    dim: dimension as u8,
+                });
+            }
+        };
+
         c.spawn_bundle(NodeBundle {
             style: Style {
-                flex_direction: FlexDirection::ColumnReverse,
+                flex_direction: FlexDirection::Column,
                 ..Default::default()
             },
             color: Color::NONE.into(),
             ..Default::default()
         })
         .with_children(|c| {
-            c.spawn_bundle(column()).with_children(|c| {
-                // upper
-                c.spawn_bundle(row()).with_children(|c| {
-                    c.spawn_bundle(label("-"));
-                    c.spawn_bundle(label("w"));
-                    c.spawn_bundle(label("a"));
-                    c.spawn_bundle(label("s"));
-                    c.spawn_bundle(label("-"));
+            c.spawn_bundle(NodeBundle {
+                style: Style {
+                    justify_content: JustifyContent::SpaceEvenly,
+                    flex_direction: FlexDirection::Row,
+                    align_items: AlignItems::Center,
+                    ..Default::default()
+                },
+                color: Color::NONE.into(),
+                ..Default::default()
+            })
+            .with_children(|c| {
+                // Axis Shift Controls
+                c.spawn_bundle(TextBundle {
+                    text: Text::with_section(
+                        "Z<W/S>X",
+                        style.clone(),
+                        TextAlignment {
+                            vertical: VerticalAlign::Center,
+                            horizontal: HorizontalAlign::Center,
+                        },
+                    ),
+                    style: Style {
+                        margin: Rect {
+                            right: Val::Px(5.0),
+                            ..Default::default()
+                        },
+                        ..Default::default()
+                    },
+                    ..Default::default()
                 });
-
-                // middle
-                c.spawn_bundle(row()).with_children(|c| {
-                    c.spawn_bundle(label("["));
-                    c.spawn_bundle(label("1,"));
-                    c.spawn_bundle(label("2,"));
-                    c.spawn_bundle(label("3,"));
-                    c.spawn_bundle(label("]"));
-                });
-
-                // lower
-                c.spawn_bundle(row()).with_children(|c| {
-                    c.spawn_bundle(label("-"));
-                    c.spawn_bundle(label("z"));
-                    c.spawn_bundle(label("x"));
-                    c.spawn_bundle(label("c"));
-                    c.spawn_bundle(label("-"));
+                c.spawn_bundle(TextBundle {
+                    text: Text::with_section(
+                        "Q<D/A>E",
+                        style.clone(),
+                        TextAlignment {
+                            vertical: VerticalAlign::Center,
+                            horizontal: HorizontalAlign::Center,
+                        },
+                    ),
+                    style: Style {
+                        margin: Rect {
+                            left: Val::Px(5.0),
+                            ..Default::default()
+                        },
+                        ..Default::default()
+                    },
+                    ..Default::default()
                 });
             });
 
-            // Axis Shift Controls
-            c.spawn_bundle(row()).with_children(|commands| {
-                commands.spawn_bundle(TextBundle {
-                    style: Style {
-                        ..Default::default()
-                    },
-                    text: Text {
-                        sections: vec![
-                            TextSection {
-                                value: "Z".into(),
-                                style: style.clone(),
-                            },
-                            TextSection {
-                                value: "<".into(),
-                                style: style.clone(),
-                            },
-                            TextSection {
-                                value: "W/S".into(),
-                                style: style.clone(),
-                            },
-                            TextSection {
-                                value: ">".into(),
-                                style: style.clone(),
-                            },
-                            TextSection {
-                                value: "X".into(),
-                                style: style.clone(),
-                            },
-                        ],
-                        ..Default::default()
-                    },
+            c.spawn_bundle(NodeBundle {
+                style: Style {
+                    flex_direction: FlexDirection::Row,
+                    align_items: AlignItems::Center,
+                    justify_content: JustifyContent::FlexStart,
                     ..Default::default()
-                });
-
-                commands.spawn_bundle(TextBundle {
-                    style: Style {
-                        ..Default::default()
-                    },
-                    text: Text {
-                        sections: vec![
-                            TextSection {
-                                value: "Q".into(),
-                                style: style.clone(),
-                            },
-                            TextSection {
-                                value: "<".into(),
-                                style: style.clone(),
-                            },
-                            TextSection {
-                                value: "D/A".into(),
-                                style: style.clone(),
-                            },
-                            TextSection {
-                                value: ">".into(),
-                                style: style.clone(),
-                            },
-                            TextSection {
-                                value: "E".into(),
-                                style: style.clone(),
-                            },
-                        ],
-                        ..Default::default()
-                    },
-                    ..Default::default()
-                });
+                },
+                color: Color::NONE.into(),
+                ..Default::default()
+            })
+            .with_children(|c| {
+                c.spawn_bundle(label("["));
+                for i in 0..DIMS {
+                    c.spawn_bundle(column()).with_children(dimension_col(i));
+                }
+                c.spawn_bundle(label("]"));
             });
         });
     }
@@ -191,30 +180,6 @@ pub fn spawn_ui<const DIMS: usize>(
 
 #[derive(Component)]
 struct MazeUiRoot;
-
-// A component used to mark something to be visible only if the specific dimension is selected.
-#[derive(Component)]
-pub struct MazeSelectedAxisVisibilityHider {
-    // The maze level this is bound to.
-    level: Entity,
-    // The dimension that this listener is watching for.
-    dim: u8,
-    // If true, the object will be visible while the axis is selected. If false, the effect is negated.
-    visible_if_selected: bool,
-}
-
-pub fn maze_selected_axis_visibility_hider_updater(
-    mut query: Query<(&MazeSelectedAxisVisibilityHider, &mut Visibility)>,
-    mut axis_changed: EventReader<AxisChanged>,
-) {
-    for changed in axis_changed.iter() {
-        for (label, mut vis) in query.iter_mut() {
-            if label.level == changed.level {
-                vis.is_visible = changed.axis.contains(&label.dim) == label.visible_if_selected;
-            }
-        }
-    }
-}
 
 #[derive(Component)]
 pub struct MazeAxisLabel<const DIMS: usize> {
@@ -243,7 +208,7 @@ pub fn maze_axis_label_update_listener<const DIMS: usize>(
 #[derive(Component)]
 pub struct MazePositionLabel<const DIMS: usize> {
     level: Entity,
-    text_section_to_dim: [usize; DIMS],
+    dimension: usize,
 }
 
 pub fn maze_position_label_update_listener<const DIMS: usize>(
@@ -253,9 +218,9 @@ pub fn maze_position_label_update_listener<const DIMS: usize>(
     for changed in position_changed.iter() {
         for (label, mut text) in query.iter_mut() {
             if label.level == changed.level {
-                for (section_index, dimension) in label.text_section_to_dim.iter().enumerate() {
-                    if let Some(section) = text.sections.get_mut(section_index) {
-                        section.value = format!("{}", changed.position[*dimension]);
+                if let Some(section) = text.sections.first_mut() {
+                    if let Some(target) = changed.position.get(label.dimension) {
+                        section.value = format!("{}", target);
                     }
                 }
             }
