@@ -5,8 +5,16 @@ mod maze;
 
 use bevy::prelude::*;
 
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub enum AppState {
+    MainMenu,
+    InMaze,
+    Paused,
+}
+
 fn main() {
     App::new()
+        .add_state(AppState::MainMenu)
         .add_plugins(DefaultPlugins)
         .add_plugin(level::LevelPlugin)
         .add_startup_system(setup)

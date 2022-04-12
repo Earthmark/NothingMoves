@@ -1,3 +1,4 @@
+use crate::AppState;
 use bevy::prelude::*;
 use rand::prelude::*;
 
@@ -37,44 +38,33 @@ impl Default for LoadLevel {
     }
 }
 
-pub fn level_load_system(mut commands: Commands, mut events: EventReader<LoadLevel>) {
+pub fn level_load_system(
+    mut c: Commands,
+    mut events: EventReader<LoadLevel>,
+    mut app_state: ResMut<State<AppState>>,
+) {
     for level_loader in events.iter() {
         let mut rng = match level_loader.rng_source {
             RngSource::Seeded(seed) => StdRng::seed_from_u64(seed),
         };
-        match level_loader.dimensions {
-            DimensionLength::Two(lengths) => {
-                commands.spawn().insert(MazeLevel::new(&lengths, &mut rng))
-            }
-            DimensionLength::Three(lengths) => {
-                commands.spawn().insert(MazeLevel::new(&lengths, &mut rng))
-            }
-            DimensionLength::Four(lengths) => {
-                commands.spawn().insert(MazeLevel::new(&lengths, &mut rng))
-            }
-            DimensionLength::Five(lengths) => {
-                commands.spawn().insert(MazeLevel::new(&lengths, &mut rng))
-            }
-            DimensionLength::Six(lengths) => {
-                commands.spawn().insert(MazeLevel::new(&lengths, &mut rng))
-            }
-        };
+        c.insert_resource(match level_loader.dimensions {
+            DimensionLength::Two(lengths) => MazeLevel::new(&lengths, &mut rng),
+            DimensionLength::Three(lengths) => MazeLevel::new(&lengths, &mut rng),
+            DimensionLength::Four(lengths) => MazeLevel::new(&lengths, &mut rng),
+            DimensionLength::Five(lengths) => MazeLevel::new(&lengths, &mut rng),
+            DimensionLength::Six(lengths) => MazeLevel::new(&lengths, &mut rng),
+        });
+        app_state.push(AppState::InMaze).unwrap();
     }
 }
 
-pub fn initial_events_on_load<const DIMS: usize>(
-    query: Query<(Entity, &MazeLevel<DIMS>), Added<MazeLevel<DIMS>>>,
-    mut position_changed: EventWriter<PositionChanged<DIMS>>,
+pub fn initial_events_on_load(
+    maze: Res<MazeLevel>,
+    mut position_changed: EventWriter<PositionChanged>,
     mut axis_changed: EventWriter<AxisChanged>,
 ) {
-    for (level, maze) in query.iter() {
-        position_changed.send(PositionChanged::<DIMS> {
-            level,
-            position: maze.position,
-        });
-        axis_changed.send(AxisChanged {
-            level,
-            axis: maze.axis,
-        });
-    }
+    position_changed.send(PositionChanged {
+        position: maze.pos().into(),
+    });
+    axis_changed.send(AxisChanged { axis: maze.axis() });
 }

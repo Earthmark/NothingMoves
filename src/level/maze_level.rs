@@ -1,23 +1,23 @@
-use crate::maze;
-use bevy::prelude::*;
+use std::ops::{Deref, DerefMut};
 
-#[derive(Component)]
-pub struct MazeLevel<const DIMS: usize> {
+use bevy::{ecs::system::Resource, prelude::*};
+
+use crate::maze;
+
+struct MazeImpl<const DIMS: usize> {
     maze: maze::Maze<DIMS>,
-    pub position: [u8; DIMS],
-    pub axis: [u8; 2],
+    position: [u8; DIMS],
+    axis: [u8; 2],
 }
 
 #[derive(Clone, Debug)]
 pub struct AxisChanged {
-    pub level: Entity,
     pub axis: [u8; 2],
 }
 
 #[derive(Clone, Debug)]
-pub struct PositionChanged<const DIMS: usize> {
-    pub level: Entity,
-    pub position: [u8; DIMS],
+pub struct PositionChanged {
+    pub position: [u8; 2],
 }
 
 #[derive(PartialEq, Eq, Clone, Copy)]
@@ -63,7 +63,7 @@ impl Direction {
     }
 }
 
-impl<const DIMS: usize> Default for MazeLevel<DIMS> {
+impl<const DIMS: usize> Default for MazeImpl<DIMS> {
     fn default() -> Self {
         Self {
             maze: Default::default(),
@@ -73,20 +73,17 @@ impl<const DIMS: usize> Default for MazeLevel<DIMS> {
     }
 }
 
-impl<const DIMS: usize> MazeLevel<DIMS> {
+impl<const DIMS: usize> MazeImpl<DIMS> {
     pub fn new(lengths: &[u8; DIMS], rng: &mut impl rand::Rng) -> Self {
         Self {
             maze: crate::maze::Maze::new(lengths, rng),
-            ..Default::default()
+            axis: [0, 1],
+            position: [0; DIMS],
         }
     }
 }
 
-impl<const DIMS: usize> MazeView for MazeLevel<DIMS> {
-    fn dims(&self) -> &[u8] {
-        self.maze.lengths()
-    }
-
+impl<const DIMS: usize> MazeView for MazeImpl<DIMS> {
     fn axis(&self) -> [u8; 2] {
         self.axis
     }
@@ -111,8 +108,15 @@ impl<const DIMS: usize> MazeView for MazeLevel<DIMS> {
         *axis.get_mut(&mut self.axis) = dest;
     }
 
+    fn dims_limit(&self) -> &[u8] {
+        self.maze.lengths()
+    }
+
+    fn dims(&self) -> &[u8] {
+        &self.position
+    }
+
     // assume dim_x and dim_y are both together.
-    #[inline]
     fn pos_limit(&self) -> [u8; 2] {
         [
             self.maze.lengths()[self.axis[0] as usize],
@@ -160,12 +164,12 @@ impl<const DIMS: usize> MazeView for MazeLevel<DIMS> {
     }
 }
 
-pub trait MazeView {
-    fn dims(&self) -> &[u8];
-
+pub trait MazeView: Resource {
     fn axis(&self) -> [u8; 2];
     fn shift_axis(&mut self, axis: Axis, dir: Direction);
 
+    fn dims_limit(&self) -> &[u8];
+    fn dims(&self) -> &[u8];
     fn pos_limit(&self) -> [u8; 2];
     fn pos(&self) -> [u8; 2];
     fn move_pos(&mut self, axis: Axis, dir: Direction);
@@ -173,26 +177,60 @@ pub trait MazeView {
     fn should_make_wall(&self, position: [u8; 2], axis: Axis) -> bool;
 }
 
-pub fn iter_walls(
-    maze: &impl MazeView,
-) -> impl std::iter::Iterator<Item = ([u8; 2], [u8; 2])> + '_ {
-    let [length_x, length_y] = maze.pos_limit();
+pub struct MazeLevel {
+    inner: Box<dyn MazeView>,
+}
 
-    (0..length_x)
-        .flat_map(move |x| (0..length_y).map(move |y| [x, y]))
-        .flat_map(move |cursor| {
-            [
-                if maze.should_make_wall(cursor, Axis::X) {
-                    Some((cursor, [cursor[0] + 1, cursor[1]]))
-                } else {
-                    None
-                },
-                if maze.should_make_wall(cursor, Axis::Y) {
-                    Some((cursor, [cursor[0], cursor[1] + 1]))
-                } else {
-                    None
-                },
-            ]
-        })
-        .flatten()
+impl Default for MazeLevel {
+    fn default() -> Self {
+        Self {
+            inner: Box::new(MazeImpl::<2>::default()),
+        }
+    }
+}
+
+impl MazeLevel {
+    pub fn new<const DIMS: usize>(lengths: &[u8; DIMS], rng: &mut impl rand::Rng) -> Self {
+        Self {
+            inner: Box::new(MazeImpl::new(lengths, rng)),
+        }
+    }
+}
+
+impl Deref for MazeLevel {
+    type Target = dyn MazeView;
+
+    fn deref(&self) -> &Self::Target {
+        self.inner.as_ref()
+    }
+}
+
+impl DerefMut for MazeLevel {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        self.inner.as_mut()
+    }
+}
+
+impl MazeLevel {
+    pub fn iter_walls(&self) -> impl std::iter::Iterator<Item = ([u8; 2], [u8; 2])> + '_ {
+        let [length_x, length_y] = self.pos_limit();
+
+        (0..length_x)
+            .flat_map(move |x| (0..length_y).map(move |y| [x, y]))
+            .flat_map(move |cursor| {
+                [
+                    if self.should_make_wall(cursor, Axis::X) {
+                        Some((cursor, [cursor[0] + 1, cursor[1]]))
+                    } else {
+                        None
+                    },
+                    if self.should_make_wall(cursor, Axis::Y) {
+                        Some((cursor, [cursor[0], cursor[1] + 1]))
+                    } else {
+                        None
+                    },
+                ]
+            })
+            .flatten()
+    }
 }

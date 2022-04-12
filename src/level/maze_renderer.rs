@@ -3,25 +3,21 @@ use std::f32::consts::PI;
 use super::maze_level::*;
 use bevy::prelude::*;
 
-pub fn spawn_ui<const DIMS: usize>(
+pub fn spawn_maze_root(
     mut commands: Commands,
-    query: Query<(Entity, &MazeLevel<DIMS>), Added<MazeLevel<DIMS>>>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    for (entity, _maze) in query.iter() {
-        commands.spawn_bundle(MazeRendererBundle {
-            renderer: MazeRenderer {
-                level: entity,
-                last_dims: [0, 0],
-                joint: meshes.add(Mesh::from(shape::Box::new(0.2, 1.0, 0.2))),
-                wall: meshes.add(Mesh::from(shape::Box::new(0.1, 0.6, 1.0))),
-                material: materials.add(Color::rgb(0.8, 0.7, 0.6).into()),
-            },
-            transform: Default::default(),
-            global_transform: Default::default(),
-        });
-    }
+    commands.spawn_bundle(MazeRendererBundle {
+        renderer: MazeRenderer {
+            last_axis: [0, 0],
+            joint: meshes.add(Mesh::from(shape::Box::new(0.2, 1.0, 0.2))),
+            wall: meshes.add(Mesh::from(shape::Box::new(0.1, 0.6, 1.0))),
+            material: materials.add(Color::rgb(0.8, 0.7, 0.6).into()),
+        },
+        transform: Default::default(),
+        global_transform: Default::default(),
+    });
 }
 
 #[derive(Bundle)]
@@ -33,8 +29,7 @@ pub struct MazeRendererBundle {
 
 #[derive(Component)]
 pub struct MazeRenderer {
-    level: Entity,
-    last_dims: [u8; 2],
+    last_axis: [u8; 2],
     joint: Handle<Mesh>,
     wall: Handle<Mesh>,
     material: Handle<StandardMaterial>,
@@ -60,29 +55,38 @@ impl MazeRenderer {
     }
 }
 
-pub fn update_maze_offset<const DIMS: usize>(
+pub fn update_maze_offset(
+    level: Res<MazeLevel>,
     mut maze_query: Query<(&MazeRenderer, &mut Transform)>,
-    level_query: Query<&MazeLevel<DIMS>, Changed<MazeLevel<DIMS>>>,
+    mut position_changed: EventReader<PositionChanged>,
+    mut axis_changed: EventReader<AxisChanged>,
 ) {
-    for (maze, mut trs) in maze_query.iter_mut() {
-        if let Ok(level) = level_query.get(maze.level) {
+    for _ in position_changed.iter() {
+        for (_, mut trs) in maze_query.iter_mut() {
+            let p = level.pos();
+            trs.translation = Vec3::new(-(p[0] as f32), 0.0, -(p[1] as f32))
+        }
+    }
+    for _ in axis_changed.iter() {
+        for (_, mut trs) in maze_query.iter_mut() {
             let p = level.pos();
             trs.translation = Vec3::new(-(p[0] as f32), 0.0, -(p[1] as f32))
         }
     }
 }
 
-pub fn maze_level_renderer<const DIMS: usize>(
+pub fn maze_level_renderer(
+    level: Res<MazeLevel>,
     mut commands: Commands,
     mut render_query: Query<(Entity, &mut MazeRenderer)>,
-    level_query: Query<&MazeLevel<DIMS>, Changed<MazeLevel<DIMS>>>,
+    mut axis_changed: EventReader<AxisChanged>,
 ) {
-    for (entity, mut assets) in render_query.iter_mut() {
-        if let Ok(level) = level_query.get(assets.level) {
-            if assets.last_dims == level.pos() {
+    for _ in axis_changed.iter() {
+        for (entity, mut assets) in render_query.iter_mut() {
+            if assets.last_axis == level.axis() {
                 continue;
             }
-            assets.last_dims = level.pos();
+            assets.last_axis = level.axis();
 
             let mut entity = commands.entity(entity);
             entity.despawn_descendants();
@@ -131,7 +135,7 @@ pub fn maze_level_renderer<const DIMS: usize>(
                 }
 
                 // walls
-                for (v1, v2) in iter_walls(level) {
+                for (v1, v2) in level.iter_walls() {
                     let p1 = Vec3::new(v1[0] as f32, 0.0, v1[1] as f32);
                     let p2 = Vec3::new(v2[0] as f32, 0.0, v2[1] as f32);
                     let rotation = if v1[0] != v2[0] {
