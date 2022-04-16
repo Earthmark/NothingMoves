@@ -1,4 +1,4 @@
-use super::maze_level::{Axis, *};
+use super::maze_level::{self, *};
 use bevy::prelude::*;
 
 // Current dimension status text layout:
@@ -30,233 +30,231 @@ use bevy::prelude::*;
 //   (false, None) -> Greyed out circle,
 // }
 
-pub fn spawn_ui<const DIMS: usize>(
-    mut c: Commands,
-    query: Query<&MazeLevel<DIMS>, Added<MazeLevel<DIMS>>>,
-    assets: Res<AssetServer>,
-) {
-    for _maze in query.iter() {
-        info!("Added maze");
-        let style = TextStyle {
-            font: assets.load("fonts\\UnicaOne-Regular.ttf"),
-            font_size: 50.0,
-            ..Default::default()
-        };
+pub fn spawn_ui(mut c: Commands, maze: Res<MazeLevel>, assets: Res<AssetServer>) {
+    let style = TextStyle {
+        font: assets.load("fonts\\UnicaOne-Regular.ttf"),
+        font_size: 50.0,
+        ..default()
+    };
 
-        let label = |s: &'static str| TextBundle {
-            text: Text::with_section(s, style.clone(), Default::default()),
-            style: Style {
-                flex_grow: 1.0,
-                ..Default::default()
+    let label = |s: &str, c: Color| TextBundle {
+        text: Text::with_section(
+            s,
+            TextStyle {
+                color: c,
+                ..style.clone()
             },
-            ..Default::default()
-        };
+            TextAlignment {
+                vertical: VerticalAlign::Center,
+                horizontal: HorizontalAlign::Center,
+            },
+        ),
+        style: Style {
+            size: Size::new(Val::Auto, Val::Px(50.0)),
+            ..default()
+        },
+        ..default()
+    };
 
-        fn row() -> NodeBundle {
-            NodeBundle {
-                style: Style {
-                    flex_direction: FlexDirection::Row,
-                    justify_content: JustifyContent::SpaceBetween,
-                    align_content: AlignContent::Stretch,
-                    position: Rect::all(Val::Auto),
-                    margin: Rect::all(Val::Auto),
-                    ..Default::default()
-                },
-                color: Color::NONE.into(),
-                ..Default::default()
-            }
-        }
+    let dimension_col = |dimension: usize| {
+        move |c: &mut ChildBuilder| {
+            c.spawn_bundle(NodeBundle::default())
+                .with_children(|c| {
+                    c.spawn_bundle(label("-", Color::DARK_GRAY))
+                        .insert(MazeAxisLabel {
+                            dim: dimension as u8,
+                            dir: maze_level::Direction::Negative,
+                        });
+                })
+                .insert(MazeAxisLabel {
+                    dim: dimension as u8,
+                    dir: maze_level::Direction::Negative,
+                });
+            c.spawn_bundle(label("#", Color::WHITE))
+                .insert(MazePositionLabel { dimension });
 
-        fn column() -> NodeBundle {
-            NodeBundle {
-                style: Style {
-                    flex_direction: FlexDirection::ColumnReverse,
-                    align_content: AlignContent::Stretch,
-                    position: Rect::all(Val::Auto),
-                    margin: Rect::all(Val::Auto),
-                    ..Default::default()
-                },
-                color: Color::NONE.into(),
-                ..Default::default()
-            }
+            c.spawn_bundle(NodeBundle::default())
+                .with_children(|c| {
+                    c.spawn_bundle(label("-", Color::DARK_GRAY))
+                        .insert(MazeAxisLabel {
+                            dim: dimension as u8,
+                            dir: maze_level::Direction::Positive,
+                        });
+                })
+                .insert(MazeAxisLabel {
+                    dim: dimension as u8,
+                    dir: maze_level::Direction::Positive,
+                });
         }
+    };
+
+    c.spawn_bundle(NodeBundle {
+        style: Style {
+            flex_direction: FlexDirection::Column,
+            ..default()
+        },
+        color: Color::NONE.into(),
+        ..default()
+    })
+    .with_children(|c| {
+        c.spawn_bundle(NodeBundle {
+            style: Style {
+                justify_content: JustifyContent::SpaceEvenly,
+                flex_direction: FlexDirection::Row,
+                align_items: AlignItems::Center,
+                ..default()
+            },
+            color: Color::NONE.into(),
+            ..default()
+        })
+        .with_children(|c| {
+            // Axis Shift Controls
+            c.spawn_bundle(TextBundle {
+                text: Text::with_section(
+                    "Z<W/S>X",
+                    style.clone(),
+                    TextAlignment {
+                        vertical: VerticalAlign::Center,
+                        horizontal: HorizontalAlign::Center,
+                    },
+                ),
+                style: Style {
+                    margin: Rect {
+                        right: Val::Px(5.0),
+                        ..default()
+                    },
+                    ..default()
+                },
+                ..default()
+            });
+            c.spawn_bundle(TextBundle {
+                text: Text::with_section(
+                    "Q<D/A>E",
+                    style.clone(),
+                    TextAlignment {
+                        vertical: VerticalAlign::Center,
+                        horizontal: HorizontalAlign::Center,
+                    },
+                ),
+                style: Style {
+                    margin: Rect {
+                        left: Val::Px(5.0),
+                        ..default()
+                    },
+                    ..default()
+                },
+                ..default()
+            });
+        });
 
         c.spawn_bundle(NodeBundle {
             style: Style {
-                flex_direction: FlexDirection::ColumnReverse,
-                ..Default::default()
+                flex_direction: FlexDirection::Row,
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::FlexStart,
+                ..default()
             },
             color: Color::NONE.into(),
-            ..Default::default()
+            ..default()
         })
         .with_children(|c| {
-            c.spawn_bundle(column()).with_children(|c| {
-                // upper
-                c.spawn_bundle(row()).with_children(|c| {
-                    c.spawn_bundle(label("-"));
-                    c.spawn_bundle(label("w"));
-                    c.spawn_bundle(label("a"));
-                    c.spawn_bundle(label("s"));
-                    c.spawn_bundle(label("-"));
-                });
-
-                // middle
-                c.spawn_bundle(row()).with_children(|c| {
-                    c.spawn_bundle(label("["));
-                    c.spawn_bundle(label("1,"));
-                    c.spawn_bundle(label("2,"));
-                    c.spawn_bundle(label("3,"));
-                    c.spawn_bundle(label("]"));
-                });
-
-                // lower
-                c.spawn_bundle(row()).with_children(|c| {
-                    c.spawn_bundle(label("-"));
-                    c.spawn_bundle(label("z"));
-                    c.spawn_bundle(label("x"));
-                    c.spawn_bundle(label("c"));
-                    c.spawn_bundle(label("-"));
-                });
-            });
-
-            // Axis Shift Controls
-            c.spawn_bundle(row()).with_children(|commands| {
-                commands.spawn_bundle(TextBundle {
+            c.spawn_bundle(label("[", Color::WHITE));
+            for (i, _) in maze.dims_limit().iter().enumerate() {
+                c.spawn_bundle(NodeBundle {
                     style: Style {
-                        ..Default::default()
+                        flex_direction: FlexDirection::Column,
+                        justify_content: JustifyContent::SpaceEvenly,
+                        margin: Rect {
+                            left: Val::Px(3.0),
+                            right: Val::Px(3.0),
+                            ..default()
+                        },
+                        ..default()
                     },
-                    text: Text {
-                        sections: vec![
-                            TextSection {
-                                value: "Z".into(),
-                                style: style.clone(),
-                            },
-                            TextSection {
-                                value: "<".into(),
-                                style: style.clone(),
-                            },
-                            TextSection {
-                                value: "W/S".into(),
-                                style: style.clone(),
-                            },
-                            TextSection {
-                                value: ">".into(),
-                                style: style.clone(),
-                            },
-                            TextSection {
-                                value: "X".into(),
-                                style: style.clone(),
-                            },
-                        ],
-                        ..Default::default()
-                    },
-                    ..Default::default()
-                });
-
-                commands.spawn_bundle(TextBundle {
-                    style: Style {
-                        ..Default::default()
-                    },
-                    text: Text {
-                        sections: vec![
-                            TextSection {
-                                value: "Q".into(),
-                                style: style.clone(),
-                            },
-                            TextSection {
-                                value: "<".into(),
-                                style: style.clone(),
-                            },
-                            TextSection {
-                                value: "D/A".into(),
-                                style: style.clone(),
-                            },
-                            TextSection {
-                                value: ">".into(),
-                                style: style.clone(),
-                            },
-                            TextSection {
-                                value: "E".into(),
-                                style: style.clone(),
-                            },
-                        ],
-                        ..Default::default()
-                    },
-                    ..Default::default()
-                });
-            });
+                    color: Color::NONE.into(),
+                    ..default()
+                })
+                .with_children(dimension_col(i));
+            }
+            c.spawn_bundle(label("]", Color::WHITE));
         });
+    });
+}
+
+#[derive(Component, Clone)]
+pub struct MazeAxisLabel {
+    dim: u8,
+    dir: maze_level::Direction,
+}
+
+pub fn maze_axis_label_background_updater(
+    level: Res<MazeLevel>,
+    mut query: Query<(&MazeAxisLabel, &mut UiColor)>,
+    mut axis_changed: EventReader<AxisChanged>,
+    mut position_changed: EventReader<PositionChanged>,
+) {
+    let mut update_bg = || {
+        for (axis, mut ui_color) in query.iter_mut() {
+            ui_color.0 = if let Some(true) = level.can_move(axis.dim, axis.dir) {
+                Color::WHITE
+            } else {
+                Color::GRAY
+            };
+        }
+    };
+    for _ in position_changed.iter() {
+        update_bg();
+    }
+    for _ in axis_changed.iter() {
+        update_bg();
     }
 }
 
-#[derive(Component)]
-struct MazeUiRoot;
-
-// A component used to mark something to be visible only if the specific dimension is selected.
-#[derive(Component)]
-pub struct MazeSelectedAxisVisibilityHider {
-    // The maze level this is bound to.
-    level: Entity,
-    // The dimension that this listener is watching for.
-    dim: u8,
-    // If true, the object will be visible while the axis is selected. If false, the effect is negated.
-    visible_if_selected: bool,
-}
-
-pub fn maze_selected_axis_visibility_hider_updater(
-    mut query: Query<(&MazeSelectedAxisVisibilityHider, &mut Visibility)>,
+pub fn maze_axis_label_update_listener(
+    mut query: Query<(&MazeAxisLabel, &mut Text)>,
     mut axis_changed: EventReader<AxisChanged>,
 ) {
     for changed in axis_changed.iter() {
-        for (label, mut vis) in query.iter_mut() {
-            if label.level == changed.level {
-                vis.is_visible = changed.axis.contains(&label.dim) == label.visible_if_selected;
-            }
-        }
-    }
-}
-
-#[derive(Component)]
-pub struct MazeAxisLabel<const DIMS: usize> {
-    level: Entity,
-    dim: u8,
-    axis: Axis,
-}
-
-pub fn maze_axis_label_update_listener<const DIMS: usize>(
-    mut query: Query<(&MazeAxisLabel<DIMS>, &mut Visibility)>,
-    mut axis_changed: EventReader<AxisChanged>,
-) {
-    for changed in axis_changed.iter() {
-        for (label, mut vis) in query.iter_mut() {
-            if label.level == changed.level {
-                vis.is_visible = *label.axis.get(&changed.axis) == label.dim;
-            }
-        }
-    }
-}
-
-// Current position status text
-// Position: [X, Y,  Z, W,  Q]
-//     Goal: [3, 4, 12, 3, 23]
-
-#[derive(Component)]
-pub struct MazePositionLabel<const DIMS: usize> {
-    level: Entity,
-    text_section_to_dim: [usize; DIMS],
-}
-
-pub fn maze_position_label_update_listener<const DIMS: usize>(
-    mut query: Query<(&MazePositionLabel<DIMS>, &mut Text)>,
-    mut position_changed: EventReader<PositionChanged<DIMS>>,
-) {
-    for changed in position_changed.iter() {
         for (label, mut text) in query.iter_mut() {
-            if label.level == changed.level {
-                for (section_index, dimension) in label.text_section_to_dim.iter().enumerate() {
-                    if let Some(section) = text.sections.get_mut(section_index) {
-                        section.value = format!("{}", changed.position[*dimension]);
-                    }
+            if changed.axis[0] == label.dim {
+                text.sections[0].value = match label.dir {
+                    maze_level::Direction::Positive => "W".into(),
+                    maze_level::Direction::Negative => "S".into(),
+                };
+            } else if changed.axis[1] == label.dim {
+                text.sections[0].value = match label.dir {
+                    maze_level::Direction::Positive => "D".into(),
+                    maze_level::Direction::Negative => "A".into(),
+                };
+            } else {
+                text.sections[0].value = "".into();
+            }
+        }
+    }
+}
+
+#[derive(Component)]
+pub struct MazePositionLabel {
+    dimension: usize,
+}
+
+pub fn maze_position_label_update_listener(
+    maze: Res<MazeLevel>,
+    mut query: Query<(&MazePositionLabel, &mut Text)>,
+    mut position_changed: EventReader<PositionChanged>,
+) {
+    for _ in position_changed.iter() {
+        for (label, mut text) in query.iter_mut() {
+            if let Some(section) = text.sections.first_mut() {
+                if let Some(target) = maze.dims().get(label.dimension) {
+                    let position = target + 1;
+                    section.value = format!("{}", position);
+                    section.style.color =
+                        if maze.dims_limit().get(label.dimension) == Some(&position) {
+                            Color::LIME_GREEN
+                        } else {
+                            Color::WHITE
+                        };
                 }
             }
         }
