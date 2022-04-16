@@ -199,8 +199,7 @@ pub fn maze_axis_label_background_updater(
                 Color::WHITE
             } else {
                 Color::GRAY
-            }
-            .into();
+            };
         }
     };
     for _ in position_changed.iter() {

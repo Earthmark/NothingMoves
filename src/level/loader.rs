@@ -64,7 +64,7 @@ pub fn initial_events_on_load(
     mut axis_changed: EventWriter<AxisChanged>,
 ) {
     position_changed.send(PositionChanged {
-        position: maze.pos().into(),
+        position: maze.pos(),
     });
     axis_changed.send(AxisChanged { axis: maze.axis() });
 }

@@ -152,7 +152,7 @@ impl<const DIMS: usize> MazeView for MazeImpl<DIMS> {
                 return None;
             }
         }
-        return self.maze.can_move(&pos, dim);
+        self.maze.can_move(&pos, dim)
     }
 
     fn wall_in_current(&self, position: [u8; 2], axis: Axis) -> bool {
