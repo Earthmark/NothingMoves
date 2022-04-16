@@ -1,7 +1,5 @@
 use std::ops::{Deref, DerefMut};
 
-use bevy::{ecs::system::Resource, prelude::*};
-
 use crate::maze;
 
 struct MazeImpl<const DIMS: usize> {
@@ -164,7 +162,7 @@ impl<const DIMS: usize> MazeView for MazeImpl<DIMS> {
     }
 }
 
-pub trait MazeView: Resource {
+pub trait MazeView: Sync + Send {
     fn axis(&self) -> [u8; 2];
     fn shift_axis(&mut self, axis: Axis, dir: Direction);
 

@@ -21,17 +21,9 @@ fn main() {
         .run();
 }
 
-fn setup(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-    mut maze_spawner: EventWriter<level::LoadLevel>,
-) {
-    commands.spawn_bundle(OrthographicCameraBundle::new_2d());
-    commands.spawn_bundle(SpriteBundle {
-        texture: asset_server.load("textures/icon.png"),
-        ..Default::default()
-    });
-    commands.spawn_bundle(PointLightBundle {
+fn setup(mut c: Commands, mut maze_spawner: EventWriter<level::LoadLevel>) {
+    c.spawn_bundle(OrthographicCameraBundle::new_2d());
+    c.spawn_bundle(PointLightBundle {
         point_light: PointLight {
             intensity: 1500.0,
             shadows_enabled: true,
@@ -41,12 +33,12 @@ fn setup(
         ..Default::default()
     });
 
-    commands.spawn_bundle(PerspectiveCameraBundle {
+    c.spawn_bundle(PerspectiveCameraBundle {
         transform: Transform::from_xyz(-6.0, 10.0, -4.0)
             .looking_at(Vec3::new(2.0, 0.0, 2.0), Vec3::Y),
         ..Default::default()
     });
-    commands.spawn_bundle(UiCameraBundle::default());
+    c.spawn_bundle(UiCameraBundle::default());
     maze_spawner.send(level::LoadLevel {
         dimensions: level::DimensionLength::Three([4, 15, 2]),
         ..Default::default()
