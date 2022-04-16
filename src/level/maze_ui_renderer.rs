@@ -181,9 +181,6 @@ pub fn spawn_ui(mut c: Commands, maze: Res<MazeLevel>, assets: Res<AssetServer>)
     });
 }
 
-#[derive(Component)]
-struct MazeUiRoot;
-
 #[derive(Component, Clone)]
 pub struct MazeAxisLabel {
     dim: u8,
@@ -251,7 +248,14 @@ pub fn maze_position_label_update_listener(
         for (label, mut text) in query.iter_mut() {
             if let Some(section) = text.sections.first_mut() {
                 if let Some(target) = maze.dims().get(label.dimension) {
-                    section.value = format!("{}", target);
+                    let position = target + 1;
+                    section.value = format!("{}", position);
+                    section.style.color =
+                        if maze.dims_limit().get(label.dimension) == Some(&position) {
+                            Color::LIME_GREEN
+                        } else {
+                            Color::WHITE
+                        };
                 }
             }
         }

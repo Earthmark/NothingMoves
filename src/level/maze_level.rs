@@ -8,12 +8,6 @@ struct MazeImpl<const DIMS: usize> {
     axis: [u8; 2],
 }
 
-struct MazeCursor<const DIMS: usize> {
-    maze: MazeImpl<DIMS>,
-    pos: [u8; DIMS],
-    axis: [u8; 2],
-}
-
 #[derive(Clone, Debug)]
 pub struct AxisChanged {
     pub axis: [u8; 2],

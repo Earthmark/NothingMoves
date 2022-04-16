@@ -69,7 +69,7 @@ pub fn initial_events_on_load(
     axis_changed.send(AxisChanged { axis: maze.axis() });
 }
 
-pub fn spawn_maze_root(
+pub fn load_maze_assets(
     mut c: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
@@ -78,6 +78,21 @@ pub fn spawn_maze_root(
         joint: meshes.add(Mesh::from(shape::Box::new(0.2, 1.0, 0.2))),
         wall: meshes.add(Mesh::from(shape::Box::new(0.1, 0.6, 1.0))),
         material: materials.add(Color::rgb(0.8, 0.7, 0.6).into()),
+    });
+}
+
+pub fn spawn_player(
+    mut c: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+) {
+    c.spawn_bundle(PbrBundle {
+        mesh: meshes.add(Mesh::from(shape::Capsule {
+            radius: 0.3,
+            ..default()
+        })),
+        material: materials.add(Color::rgb(0.5, 0.5, 0.8).into()),
+        ..Default::default()
     });
 }
 
