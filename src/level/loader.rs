@@ -68,3 +68,42 @@ pub fn initial_events_on_load(
     });
     axis_changed.send(AxisChanged { axis: maze.axis() });
 }
+
+pub fn spawn_maze_root(
+    mut c: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+) {
+    c.insert_resource(MazeAssets {
+        joint: meshes.add(Mesh::from(shape::Box::new(0.2, 1.0, 0.2))),
+        wall: meshes.add(Mesh::from(shape::Box::new(0.1, 0.6, 1.0))),
+        material: materials.add(Color::rgb(0.8, 0.7, 0.6).into()),
+    });
+}
+
+#[derive(Component)]
+pub struct MazeAssets {
+    joint: Handle<Mesh>,
+    wall: Handle<Mesh>,
+    material: Handle<StandardMaterial>,
+}
+
+impl MazeAssets {
+    pub fn wall(&self, transform: Transform) -> PbrBundle {
+        PbrBundle {
+            mesh: self.wall.clone(),
+            material: self.material.clone(),
+            transform,
+            ..Default::default()
+        }
+    }
+
+    pub fn joint(&self, transform: Transform) -> PbrBundle {
+        PbrBundle {
+            mesh: self.joint.clone(),
+            material: self.material.clone(),
+            transform,
+            ..Default::default()
+        }
+    }
+}

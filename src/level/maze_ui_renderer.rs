@@ -1,4 +1,4 @@
-use super::maze_level::*;
+use super::maze_level::{self, *};
 use bevy::prelude::*;
 
 // Current dimension status text layout:
@@ -34,13 +34,16 @@ pub fn spawn_ui(mut c: Commands, maze: Res<MazeLevel>, assets: Res<AssetServer>)
     let style = TextStyle {
         font: assets.load("fonts\\UnicaOne-Regular.ttf"),
         font_size: 50.0,
-        ..Default::default()
+        ..default()
     };
 
-    let label = |s: &str| TextBundle {
+    let label = |s: &str, c: Color| TextBundle {
         text: Text::with_section(
             s,
-            style.clone(),
+            TextStyle {
+                color: c,
+                ..style.clone()
+            },
             TextAlignment {
                 vertical: VerticalAlign::Center,
                 horizontal: HorizontalAlign::Center,
@@ -48,45 +51,50 @@ pub fn spawn_ui(mut c: Commands, maze: Res<MazeLevel>, assets: Res<AssetServer>)
         ),
         style: Style {
             size: Size::new(Val::Auto, Val::Px(50.0)),
-            ..Default::default()
+            ..default()
         },
-        ..Default::default()
+        ..default()
     };
-
-    fn column() -> NodeBundle {
-        NodeBundle {
-            style: Style {
-                flex_direction: FlexDirection::Column,
-                justify_content: JustifyContent::SpaceEvenly,
-                ..Default::default()
-            },
-            color: Color::NONE.into(),
-            ..Default::default()
-        }
-    }
 
     let dimension_col = |dimension: usize| {
         move |c: &mut ChildBuilder| {
-            c.spawn_bundle(label("-")).insert(MazeAxisLabel {
-                dim: dimension as u8,
-                dir: AxisDirection::Positive,
-            });
-            c.spawn_bundle(label("#"))
+            c.spawn_bundle(NodeBundle::default())
+                .with_children(|c| {
+                    c.spawn_bundle(label("-", Color::DARK_GRAY))
+                        .insert(MazeAxisLabel {
+                            dim: dimension as u8,
+                            dir: maze_level::Direction::Negative,
+                        });
+                })
+                .insert(MazeAxisLabel {
+                    dim: dimension as u8,
+                    dir: maze_level::Direction::Negative,
+                });
+            c.spawn_bundle(label("#", Color::WHITE))
                 .insert(MazePositionLabel { dimension });
-            c.spawn_bundle(label("-")).insert(MazeAxisLabel {
-                dim: dimension as u8,
-                dir: AxisDirection::Negative,
-            });
+
+            c.spawn_bundle(NodeBundle::default())
+                .with_children(|c| {
+                    c.spawn_bundle(label("-", Color::DARK_GRAY))
+                        .insert(MazeAxisLabel {
+                            dim: dimension as u8,
+                            dir: maze_level::Direction::Positive,
+                        });
+                })
+                .insert(MazeAxisLabel {
+                    dim: dimension as u8,
+                    dir: maze_level::Direction::Positive,
+                });
         }
     };
 
     c.spawn_bundle(NodeBundle {
         style: Style {
             flex_direction: FlexDirection::Column,
-            ..Default::default()
+            ..default()
         },
         color: Color::NONE.into(),
-        ..Default::default()
+        ..default()
     })
     .with_children(|c| {
         c.spawn_bundle(NodeBundle {
@@ -94,10 +102,10 @@ pub fn spawn_ui(mut c: Commands, maze: Res<MazeLevel>, assets: Res<AssetServer>)
                 justify_content: JustifyContent::SpaceEvenly,
                 flex_direction: FlexDirection::Row,
                 align_items: AlignItems::Center,
-                ..Default::default()
+                ..default()
             },
             color: Color::NONE.into(),
-            ..Default::default()
+            ..default()
         })
         .with_children(|c| {
             // Axis Shift Controls
@@ -113,11 +121,11 @@ pub fn spawn_ui(mut c: Commands, maze: Res<MazeLevel>, assets: Res<AssetServer>)
                 style: Style {
                     margin: Rect {
                         right: Val::Px(5.0),
-                        ..Default::default()
+                        ..default()
                     },
-                    ..Default::default()
+                    ..default()
                 },
-                ..Default::default()
+                ..default()
             });
             c.spawn_bundle(TextBundle {
                 text: Text::with_section(
@@ -131,11 +139,11 @@ pub fn spawn_ui(mut c: Commands, maze: Res<MazeLevel>, assets: Res<AssetServer>)
                 style: Style {
                     margin: Rect {
                         left: Val::Px(5.0),
-                        ..Default::default()
+                        ..default()
                     },
-                    ..Default::default()
+                    ..default()
                 },
-                ..Default::default()
+                ..default()
             });
         });
 
@@ -144,17 +152,31 @@ pub fn spawn_ui(mut c: Commands, maze: Res<MazeLevel>, assets: Res<AssetServer>)
                 flex_direction: FlexDirection::Row,
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::FlexStart,
-                ..Default::default()
+                ..default()
             },
             color: Color::NONE.into(),
-            ..Default::default()
+            ..default()
         })
         .with_children(|c| {
-            c.spawn_bundle(label("["));
+            c.spawn_bundle(label("[", Color::WHITE));
             for (i, _) in maze.dims_limit().iter().enumerate() {
-                c.spawn_bundle(column()).with_children(dimension_col(i));
+                c.spawn_bundle(NodeBundle {
+                    style: Style {
+                        flex_direction: FlexDirection::Column,
+                        justify_content: JustifyContent::SpaceEvenly,
+                        margin: Rect {
+                            left: Val::Px(3.0),
+                            right: Val::Px(3.0),
+                            ..default()
+                        },
+                        ..default()
+                    },
+                    color: Color::NONE.into(),
+                    ..default()
+                })
+                .with_children(dimension_col(i));
             }
-            c.spawn_bundle(label("]"));
+            c.spawn_bundle(label("]", Color::WHITE));
         });
     });
 }
@@ -162,15 +184,34 @@ pub fn spawn_ui(mut c: Commands, maze: Res<MazeLevel>, assets: Res<AssetServer>)
 #[derive(Component)]
 struct MazeUiRoot;
 
-enum AxisDirection {
-    Positive,
-    Negative,
-}
-
-#[derive(Component)]
+#[derive(Component, Clone)]
 pub struct MazeAxisLabel {
     dim: u8,
-    dir: AxisDirection,
+    dir: maze_level::Direction,
+}
+
+pub fn maze_axis_label_background_updater(
+    level: Res<MazeLevel>,
+    mut query: Query<(&MazeAxisLabel, &mut UiColor)>,
+    mut axis_changed: EventReader<AxisChanged>,
+    mut position_changed: EventReader<PositionChanged>,
+) {
+    let mut update_bg = || {
+        for (axis, mut ui_color) in query.iter_mut() {
+            ui_color.0 = if let Some(true) = level.can_move(axis.dim, axis.dir) {
+                Color::WHITE
+            } else {
+                Color::GRAY
+            }
+            .into();
+        }
+    };
+    for _ in position_changed.iter() {
+        update_bg();
+    }
+    for _ in axis_changed.iter() {
+        update_bg();
+    }
 }
 
 pub fn maze_axis_label_update_listener(
@@ -181,13 +222,13 @@ pub fn maze_axis_label_update_listener(
         for (label, mut text) in query.iter_mut() {
             if changed.axis[0] == label.dim {
                 text.sections[0].value = match label.dir {
-                    AxisDirection::Positive => "S".into(),
-                    AxisDirection::Negative => "W".into(),
+                    maze_level::Direction::Positive => "W".into(),
+                    maze_level::Direction::Negative => "S".into(),
                 };
             } else if changed.axis[1] == label.dim {
                 text.sections[0].value = match label.dir {
-                    AxisDirection::Positive => "A".into(),
-                    AxisDirection::Negative => "D".into(),
+                    maze_level::Direction::Positive => "D".into(),
+                    maze_level::Direction::Negative => "A".into(),
                 };
             } else {
                 text.sections[0].value = "".into();

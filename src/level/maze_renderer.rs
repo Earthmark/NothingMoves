@@ -1,20 +1,11 @@
 use std::f32::consts::PI;
 
-use super::maze_level::*;
+use super::{loader::MazeAssets, maze_level::*};
 use bevy::prelude::*;
 
-pub fn spawn_maze_root(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-) {
-    commands.spawn_bundle(MazeRendererBundle {
-        renderer: MazeRenderer {
-            last_axis: [0, 0],
-            joint: meshes.add(Mesh::from(shape::Box::new(0.2, 1.0, 0.2))),
-            wall: meshes.add(Mesh::from(shape::Box::new(0.1, 0.6, 1.0))),
-            material: materials.add(Color::rgb(0.8, 0.7, 0.6).into()),
-        },
+pub fn spawn_maze_root(mut c: Commands) {
+    c.spawn_bundle(MazeRendererBundle {
+        renderer: MazeRenderer { last_axis: [0, 0] },
         transform: Default::default(),
         global_transform: Default::default(),
     });
@@ -30,29 +21,6 @@ pub struct MazeRendererBundle {
 #[derive(Component)]
 pub struct MazeRenderer {
     last_axis: [u8; 2],
-    joint: Handle<Mesh>,
-    wall: Handle<Mesh>,
-    material: Handle<StandardMaterial>,
-}
-
-impl MazeRenderer {
-    fn wall(&self, transform: Transform) -> PbrBundle {
-        PbrBundle {
-            mesh: self.wall.clone(),
-            material: self.material.clone(),
-            transform,
-            ..Default::default()
-        }
-    }
-
-    fn joint(&self, transform: Transform) -> PbrBundle {
-        PbrBundle {
-            mesh: self.joint.clone(),
-            material: self.material.clone(),
-            transform,
-            ..Default::default()
-        }
-    }
 }
 
 pub fn update_maze_offset(
@@ -61,32 +29,33 @@ pub fn update_maze_offset(
     mut position_changed: EventReader<PositionChanged>,
     mut axis_changed: EventReader<AxisChanged>,
 ) {
-    for _ in position_changed.iter() {
+    let mut update_pos = || {
         for (_, mut trs) in maze_query.iter_mut() {
             let p = level.pos();
             trs.translation = Vec3::new(-(p[0] as f32), 0.0, -(p[1] as f32))
         }
+    };
+    for _ in position_changed.iter() {
+        update_pos();
     }
     for _ in axis_changed.iter() {
-        for (_, mut trs) in maze_query.iter_mut() {
-            let p = level.pos();
-            trs.translation = Vec3::new(-(p[0] as f32), 0.0, -(p[1] as f32))
-        }
+        update_pos();
     }
 }
 
 pub fn maze_level_renderer(
     level: Res<MazeLevel>,
+    assets: Res<MazeAssets>,
     mut commands: Commands,
     mut render_query: Query<(Entity, &mut MazeRenderer)>,
     mut axis_changed: EventReader<AxisChanged>,
 ) {
     for _ in axis_changed.iter() {
-        for (entity, mut assets) in render_query.iter_mut() {
-            if assets.last_axis == level.axis() {
+        for (entity, mut renderer) in render_query.iter_mut() {
+            if renderer.last_axis == level.axis() {
                 continue;
             }
-            assets.last_axis = level.axis();
+            renderer.last_axis = level.axis();
 
             let mut entity = commands.entity(entity);
             entity.despawn_descendants();

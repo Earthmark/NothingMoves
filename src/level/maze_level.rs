@@ -8,6 +8,12 @@ struct MazeImpl<const DIMS: usize> {
     axis: [u8; 2],
 }
 
+struct MazeCursor<const DIMS: usize> {
+    maze: MazeImpl<DIMS>,
+    pos: [u8; DIMS],
+    axis: [u8; 2],
+}
+
 #[derive(Clone, Debug)]
 pub struct AxisChanged {
     pub axis: [u8; 2],
@@ -131,15 +137,7 @@ impl<const DIMS: usize> MazeView for MazeImpl<DIMS> {
 
     fn move_pos(&mut self, axis: Axis, dir: Direction) {
         let dim = *axis.get(&self.axis) as usize;
-        let mut pos = self.position;
-        if dir == Direction::Negative {
-            if let Some(new_pos) = pos[dim].checked_sub(1) {
-                pos[dim] = new_pos;
-            } else {
-                return;
-            }
-        }
-        if let Some(true) = self.maze.can_move(&pos, dim) {
+        if let Some(true) = self.can_move(dim as u8, dir) {
             if let Some(new_pos) = if dir == Direction::Positive {
                 self.position[dim].checked_add(1)
             } else {
@@ -150,7 +148,20 @@ impl<const DIMS: usize> MazeView for MazeImpl<DIMS> {
         }
     }
 
-    fn should_make_wall(&self, position: [u8; 2], axis: Axis) -> bool {
+    fn can_move(&self, dim: u8, dir: Direction) -> Option<bool> {
+        let dim = dim as usize;
+        let mut pos = self.position;
+        if dir == Direction::Negative {
+            if let Some(new_pos) = pos[dim].checked_sub(1) {
+                pos[dim] = new_pos;
+            } else {
+                return None;
+            }
+        }
+        return self.maze.can_move(&pos, dim);
+    }
+
+    fn wall_in_current(&self, position: [u8; 2], axis: Axis) -> bool {
         let mut cursor = self.position;
         cursor[self.axis[0] as usize] = position[0];
         cursor[self.axis[1] as usize] = position[1];
@@ -172,7 +183,9 @@ pub trait MazeView: Sync + Send {
     fn pos(&self) -> [u8; 2];
     fn move_pos(&mut self, axis: Axis, dir: Direction);
 
-    fn should_make_wall(&self, position: [u8; 2], axis: Axis) -> bool;
+    fn can_move(&self, dim: u8, dir: Direction) -> Option<bool>;
+
+    fn wall_in_current(&self, position: [u8; 2], axis: Axis) -> bool;
 }
 
 pub struct MazeLevel {
@@ -217,12 +230,12 @@ impl MazeLevel {
             .flat_map(move |x| (0..length_y).map(move |y| [x, y]))
             .flat_map(move |cursor| {
                 [
-                    if self.should_make_wall(cursor, Axis::X) {
+                    if self.wall_in_current(cursor, Axis::X) {
                         Some((cursor, [cursor[0] + 1, cursor[1]]))
                     } else {
                         None
                     },
-                    if self.should_make_wall(cursor, Axis::Y) {
+                    if self.wall_in_current(cursor, Axis::Y) {
                         Some((cursor, [cursor[0], cursor[1] + 1]))
                     } else {
                         None

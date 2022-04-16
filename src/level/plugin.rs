@@ -14,12 +14,14 @@ impl Plugin for LevelPlugin {
                 SystemSet::on_enter(AppState::InMaze)
                     .with_system(maze_renderer::spawn_maze_root)
                     .with_system(maze_ui_renderer::spawn_ui)
-                    .with_system(loader::initial_events_on_load),
+                    .with_system(loader::initial_events_on_load)
+                    .with_system(loader::spawn_maze_root),
             )
             .add_system_set(
                 SystemSet::on_update(AppState::InMaze)
                     .with_system(maze_ui_renderer::maze_axis_label_update_listener)
                     .with_system(maze_ui_renderer::maze_position_label_update_listener)
+                    .with_system(maze_ui_renderer::maze_axis_label_background_updater)
                     .with_system(maze_renderer::maze_level_renderer)
                     .with_system(maze_renderer::update_maze_offset)
                     .with_system(input::level_navigation),
