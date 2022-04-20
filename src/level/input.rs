@@ -4,51 +4,43 @@ use super::maze_level::*;
 use super::maze_level::{Axis, Direction};
 
 pub fn level_navigation(
-    level: Option<ResMut<MazeLevel>>,
+    mut level: ResMut<MazeLevel>,
     keys: Res<Input<KeyCode>>,
     mut position_event: EventWriter<PositionChanged>,
     mut axis_event: EventWriter<AxisChanged>,
 ) {
-    if let Some(mut level) = level {
-        if keys.just_pressed(KeyCode::Q) {
-            level.shift_axis(Axis::X, Direction::Negative);
-            axis_event.send(AxisChanged { axis: level.axis() });
+    let mut shift_axis = |key: KeyCode, axis: Axis, dir: Direction| {
+        if keys.just_pressed(key) {
+            let previous_axis = level.axis();
+            level.shift_axis(axis, dir);
+            let axis = level.axis();
+            if previous_axis != axis {
+                axis_event.send(AxisChanged {
+                    axis,
+                    previous_axis,
+                });
+            }
         }
-        if keys.just_pressed(KeyCode::E) {
-            level.shift_axis(Axis::X, Direction::Positive);
-            axis_event.send(AxisChanged { axis: level.axis() });
+    };
+    shift_axis(KeyCode::Q, Axis::X, Direction::Negative);
+    shift_axis(KeyCode::E, Axis::X, Direction::Positive);
+    shift_axis(KeyCode::Z, Axis::Y, Direction::Negative);
+    shift_axis(KeyCode::X, Axis::Y, Direction::Positive);
+    let mut shift_position = |key: KeyCode, axis: Axis, dir: Direction| {
+        if keys.just_pressed(key) {
+            let previous_position = level.pos();
+            level.move_pos(axis, dir);
+            let position = level.pos();
+            if previous_position != position {
+                position_event.send(PositionChanged {
+                    position,
+                    previous_position,
+                });
+            }
         }
-        if keys.just_pressed(KeyCode::Z) {
-            level.shift_axis(Axis::Y, Direction::Negative);
-            axis_event.send(AxisChanged { axis: level.axis() });
-        }
-        if keys.just_pressed(KeyCode::X) {
-            level.shift_axis(Axis::Y, Direction::Positive);
-            axis_event.send(AxisChanged { axis: level.axis() });
-        }
-        if keys.just_pressed(KeyCode::W) {
-            level.move_pos(Axis::X, Direction::Positive);
-            position_event.send(PositionChanged {
-                position: level.pos(),
-            });
-        }
-        if keys.just_pressed(KeyCode::S) {
-            level.move_pos(Axis::X, Direction::Negative);
-            position_event.send(PositionChanged {
-                position: level.pos(),
-            });
-        }
-        if keys.just_pressed(KeyCode::D) {
-            level.move_pos(Axis::Y, Direction::Positive);
-            position_event.send(PositionChanged {
-                position: level.pos(),
-            });
-        }
-        if keys.just_pressed(KeyCode::A) {
-            level.move_pos(Axis::Y, Direction::Negative);
-            position_event.send(PositionChanged {
-                position: level.pos(),
-            });
-        }
-    }
+    };
+    shift_position(KeyCode::W, Axis::X, Direction::Positive);
+    shift_position(KeyCode::S, Axis::X, Direction::Negative);
+    shift_position(KeyCode::D, Axis::Y, Direction::Positive);
+    shift_position(KeyCode::A, Axis::Y, Direction::Negative);
 }

@@ -17,7 +17,6 @@ impl Plugin for LevelPlugin {
             .add_system_set(
                 SystemSet::on_enter(AppState::InMaze)
                     .label(LevelInit)
-                    .with_system(maze_renderer::spawn_maze_root)
                     .with_system(maze_ui_renderer::spawn_ui)
                     .with_system(loader::initial_events_on_load)
                     .with_system(loader::spawn_player),
@@ -29,7 +28,15 @@ impl Plugin for LevelPlugin {
                     .with_system(maze_ui_renderer::maze_position_label_update_listener)
                     .with_system(maze_ui_renderer::maze_axis_label_background_updater)
                     .with_system(maze_renderer::maze_level_renderer)
-                    .with_system(maze_renderer::update_maze_offset)
+                    .with_system(maze_renderer::rotate_for_n_update)
+                    .with_system(maze_renderer::remove_after_time)
+                    .with_system(maze_renderer::remove_after_n_watcher::<maze_renderer::Rotate>)
+                    .with_system(
+                        maze_renderer::update_maze_offset.after(maze_renderer::maze_level_renderer),
+                    )
+                    .with_system(maze_renderer::delete_after_duration_maintainer)
+                    .with_system(maze_renderer::start_despawn_of_render)
+                    .with_system(maze_renderer::maze_level_rotator)
                     .with_system(input::level_navigation),
             );
     }

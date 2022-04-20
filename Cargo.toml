@@ -5,8 +5,8 @@ name = "nothing-moves"
 version = "0.1.0"
 
 [dependencies]
-bevy = "0.7"
-rand = "0.8"
+bevy = "*"
+rand = "*"
 
 # Enable only a small amount of optimization in debug mode
 [profile.dev]

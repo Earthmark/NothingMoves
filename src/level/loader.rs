@@ -65,8 +65,12 @@ pub fn initial_events_on_load(
 ) {
     position_changed.send(PositionChanged {
         position: maze.pos(),
+        previous_position: maze.pos(),
     });
-    axis_changed.send(AxisChanged { axis: maze.axis() });
+    axis_changed.send(AxisChanged {
+        axis: maze.axis(),
+        previous_axis: maze.axis(),
+    });
 }
 
 pub fn load_maze_assets(

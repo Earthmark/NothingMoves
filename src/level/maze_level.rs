@@ -11,11 +11,13 @@ struct MazeImpl<const DIMS: usize> {
 #[derive(Clone, Debug)]
 pub struct AxisChanged {
     pub axis: [u8; 2],
+    pub previous_axis: [u8; 2],
 }
 
 #[derive(Clone, Debug)]
 pub struct PositionChanged {
     pub position: [u8; 2],
+    pub previous_position: [u8; 2],
 }
 
 #[derive(PartialEq, Eq, Clone, Copy)]
@@ -56,8 +58,16 @@ impl Direction {
     fn shift_wrapped(&self, value: u8, limit: u8) -> u8 {
         (match self {
             Direction::Positive => value.checked_add(1).unwrap_or(0),
-            Direction::Negative => value.checked_sub(1).unwrap_or(limit - 2),
-        } % (limit - 1))
+            Direction::Negative => value.checked_sub(1).unwrap_or(limit - 1),
+        } % limit)
+    }
+
+    fn shift_clamped(&self, value: u8, limit: u8) -> u8 {
+        match self {
+            Direction::Positive => value.checked_add(1).unwrap_or(limit - 1),
+            Direction::Negative => value.checked_sub(1).unwrap_or(0),
+        }
+        .clamp(0, limit - 1)
     }
 }
 
@@ -96,7 +106,7 @@ impl<const DIMS: usize> MazeView for MazeImpl<DIMS> {
             target_axis
         };
 
-        let new_off_axis = dir.shift_wrapped(linear_current, DIMS as u8);
+        let new_off_axis = dir.shift_clamped(linear_current, DIMS as u8 - 1);
         let dest = if new_off_axis >= off_target_axis {
             new_off_axis + 1
         } else {
@@ -126,6 +136,13 @@ impl<const DIMS: usize> MazeView for MazeImpl<DIMS> {
         [
             self.position[self.axis[0] as usize],
             self.position[self.axis[1] as usize],
+        ]
+    }
+
+    fn pos_in(&self, axis: [u8; 2]) -> [u8; 2] {
+        [
+            self.position[axis[0] as usize],
+            self.position[axis[1] as usize],
         ]
     }
 
@@ -175,6 +192,7 @@ pub trait MazeView: Sync + Send {
     fn dims(&self) -> &[u8];
     fn pos_limit(&self) -> [u8; 2];
     fn pos(&self) -> [u8; 2];
+    fn pos_in(&self, axis: [u8; 2]) -> [u8; 2];
     fn move_pos(&mut self, axis: Axis, dir: Direction);
 
     fn can_move(&self, dim: u8, dir: Direction) -> Option<bool>;
