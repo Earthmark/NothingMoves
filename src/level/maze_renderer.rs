@@ -1,5 +1,5 @@
+use std::f32::consts::PI;
 use std::time::{Duration, Instant};
-use std::{f32::consts::PI, marker::PhantomData};
 
 use super::{loader::MazeAssets, maze_level::*};
 use bevy::prelude::*;
@@ -48,9 +48,7 @@ pub struct MazeRotationTrackerBundle {
 }
 
 #[derive(Component, Default)]
-pub struct MazeRotationTracker {
-    visible_axis: [u8; 2],
-}
+pub struct MazeRotationTracker;
 
 // The maze hierarchy is as follows:
 // - Rotate - (player assumed to be in the center)
@@ -58,7 +56,7 @@ pub struct MazeRotationTracker {
 //   - Walls
 
 fn get_rot_from_axis(axis: &AxisChanged) -> Quat {
-    let length = PI / 2.0;
+    let length = PI / 4.0;
     let x_axis = if axis.axis[0] < axis.previous_axis[0] {
         Quat::from_euler(EulerRot::XYZ, 0.0, 0.0, length)
     } else if axis.axis[0] > axis.previous_axis[0] {
@@ -86,17 +84,15 @@ pub fn maze_level_renderer(
     for axis in axis_changed.iter() {
         let start = get_rot_from_axis(axis).inverse();
         c.spawn_bundle(MazeRotationTrackerBundle {
-            position_tracker: MazeRotationTracker {
-                visible_axis: level.axis(),
-            },
+            position_tracker: MazeRotationTracker,
             transform: Transform::from_rotation(start),
             ..default()
         })
-        .insert(RotateForN {
-            start,
-            end: Quat::IDENTITY,
+        .insert(ShiftForN {
+            rot: Range::new(start, Quat::IDENTITY),
+            sca: Range::new(Vec3::new(1.0, 0.0, 1.0), Vec3::new(1.0, 1.0, 1.0)),
             start_time: time.last_update().unwrap(),
-            duration: Duration::from_millis(500),
+            duration: Duration::from_millis(200),
             remove_entity: false,
         })
         .with_children(|c| {
@@ -176,95 +172,78 @@ pub fn maze_level_renderer(
 pub fn start_despawn_of_render(
     time: Res<Time>,
     mut c: Commands,
-    render_query: Query<Entity, (With<MazeRotationTracker>, Without<Rotate>)>,
+    render_query: Query<Entity, (With<MazeRotationTracker>, Without<ShiftForN>)>,
     mut axis_changed: EventReader<AxisChanged>,
 ) {
     for axis in axis_changed.iter() {
         for e in render_query.iter() {
-            c.entity(e).insert(RotateForN {
-                start: Quat::IDENTITY,
-                end: get_rot_from_axis(axis),
+            c.entity(e).insert(ShiftForN {
+                rot: Range::new(Quat::IDENTITY, get_rot_from_axis(axis)),
+                sca: Range::new(Vec3::new(1.0, 1.0, 1.0), Vec3::new(1.0, 0.0, 1.0)),
                 start_time: time.last_update().unwrap(),
-                duration: Duration::from_millis(500),
+                duration: Duration::from_millis(200),
                 remove_entity: true,
             });
         }
     }
 }
 
-#[derive(Component)]
-pub struct RotateForN {
-    start_time: Instant,
-    duration: Duration,
-    start: Quat,
-    end: Quat,
-    remove_entity: bool,
+trait Lerpable {
+    fn lerp(a: &Self, b: &Self, rate: f32) -> Self;
 }
 
-pub fn rotate_for_n_update(time: Res<Time>, mut rotator: Query<(&RotateForN, &mut Transform)>) {
-    for (rot, mut trs) in rotator.iter_mut() {
-        *trs = Transform::from_rotation(rot.start.lerp(
-            rot.end,
-            (time.last_update().unwrap() - rot.start_time).as_secs_f32()
-                / rot.duration.as_secs_f32(),
-        ));
+impl Lerpable for Quat {
+    fn lerp(a: &Self, b: &Self, rate: f32) -> Self {
+        a.slerp(*b, rate)
     }
 }
 
-pub fn remove_after_time(mut c: Commands, time: Res<Time>, query: Query<(Entity, &RotateForN)>) {
+impl Lerpable for Vec3 {
+    fn lerp(a: &Self, b: &Self, rate: f32) -> Self {
+        a.lerp(*b, rate)
+    }
+}
+
+struct Range<Val: Lerpable> {
+    start: Val,
+    end: Val,
+}
+
+impl<Val: Lerpable> Range<Val> {
+    fn new(start: Val, end: Val) -> Self {
+        Self { start, end }
+    }
+    fn get(&self, rate: f32) -> Val {
+        Val::lerp(&self.start, &self.end, rate)
+    }
+}
+
+#[derive(Component)]
+pub struct ShiftForN {
+    start_time: Instant,
+    duration: Duration,
+    rot: Range<Quat>,
+    sca: Range<Vec3>,
+    remove_entity: bool,
+}
+
+pub fn rotate_for_n_update(time: Res<Time>, mut rotator: Query<(&ShiftForN, &mut Transform)>) {
+    for (shift, mut trs) in rotator.iter_mut() {
+        let lerp_val = (time.last_update().unwrap() - shift.start_time).as_secs_f32()
+            / shift.duration.as_secs_f32();
+        *trs = Transform::from_rotation(shift.rot.get(lerp_val))
+            * Transform::from_scale(shift.sca.get(lerp_val));
+    }
+}
+
+pub fn remove_after_time(mut c: Commands, time: Res<Time>, query: Query<(Entity, &ShiftForN)>) {
     for (e, r) in query.iter() {
         if time.last_update() >= Some(r.start_time + r.duration) {
             if r.remove_entity {
                 c.entity(e).despawn_recursive();
             } else {
-                c.entity(e).remove::<RotateForN>();
+                c.entity(e).remove::<ShiftForN>();
             }
-        }
-    }
-}
-
-#[derive(Component)]
-pub struct RemoveAfterN<T: Component> {
-    remove_time: Instant,
-    phantom: PhantomData<T>,
-}
-
-pub fn remove_after_n_watcher<T: Component>(
-    mut c: Commands,
-    time: Res<Time>,
-    query: Query<(Entity, &RemoveAfterN<T>)>,
-) {
-    for (e, r) in query.iter() {
-        if Some(r.remove_time) <= time.last_update() {
-            c.entity(e).remove::<T>();
-        }
-    }
-}
-
-#[derive(Component)]
-pub struct Rotate {
-    speed: Quat,
-}
-
-pub fn maze_level_rotator(time: Res<Time>, mut rotator: Query<(&Rotate, &mut Transform)>) {
-    for (rot, mut trs) in rotator.iter_mut() {
-        trs.rotate(Quat::IDENTITY.lerp(rot.speed, time.delta_seconds()));
-    }
-}
-
-#[derive(Component)]
-pub struct DeleteAfterDuration {
-    delete_time: std::time::Instant,
-}
-
-pub fn delete_after_duration_maintainer(
-    time: Res<Time>,
-    mut c: Commands,
-    rotator: Query<(Entity, &DeleteAfterDuration)>,
-) {
-    for (e, d) in rotator.iter() {
-        if Some(d.delete_time) <= time.last_update() {
-            c.entity(e).despawn_recursive();
         }
     }
 }
