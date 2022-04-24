@@ -65,7 +65,7 @@ impl Direction {
     fn shift_clamped(&self, value: u8, limit: u8) -> u8 {
         match self {
             Direction::Positive => value.checked_add(1).unwrap_or(limit - 1),
-            Direction::Negative => value.checked_sub(1).unwrap_or(0),
+            Direction::Negative => value.saturating_sub(1),
         }
         .clamp(0, limit - 1)
     }

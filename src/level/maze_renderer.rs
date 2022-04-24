@@ -1,8 +1,8 @@
-use std::f32::consts::PI;
-use std::time::{Duration, Instant};
-
 use super::{loader::MazeAssets, maze_level::*};
 use bevy::prelude::*;
+use std::cmp::Ordering;
+use std::f32::consts::PI;
+use std::time::{Duration, Instant};
 
 #[derive(Bundle, Default)]
 pub struct MazePositionTrackerBundle {
@@ -57,19 +57,15 @@ pub struct MazeRotationTracker;
 
 fn get_rot_from_axis(axis: &AxisChanged) -> Quat {
     let length = PI / 4.0;
-    let x_axis = if axis.axis[0] < axis.previous_axis[0] {
-        Quat::from_euler(EulerRot::XYZ, 0.0, 0.0, length)
-    } else if axis.axis[0] > axis.previous_axis[0] {
-        Quat::from_euler(EulerRot::XYZ, 0.0, 0.0, -length)
-    } else {
-        Quat::IDENTITY
+    let x_axis = match axis.axis[0].cmp(&axis.previous_axis[0]) {
+        Ordering::Greater => Quat::from_euler(EulerRot::XYZ, 0.0, 0.0, -length),
+        Ordering::Less => Quat::from_euler(EulerRot::XYZ, 0.0, 0.0, length),
+        Ordering::Equal => Quat::IDENTITY,
     };
-    let y_axis = if axis.axis[1] < axis.previous_axis[1] {
-        Quat::from_euler(EulerRot::XYZ, length, 0.0, 0.0)
-    } else if axis.axis[1] > axis.previous_axis[1] {
-        Quat::from_euler(EulerRot::XYZ, -length, 0.0, 0.0)
-    } else {
-        Quat::IDENTITY
+    let y_axis = match axis.axis[1].cmp(&axis.previous_axis[1]) {
+        Ordering::Greater => Quat::from_euler(EulerRot::XYZ, -length, 0.0, 0.0),
+        Ordering::Less => Quat::from_euler(EulerRot::XYZ, length, 0.0, 0.0),
+        Ordering::Equal => Quat::IDENTITY,
     };
     x_axis * y_axis
 }
@@ -172,18 +168,20 @@ pub fn maze_level_renderer(
 pub fn start_despawn_of_render(
     time: Res<Time>,
     mut c: Commands,
-    render_query: Query<Entity, (With<MazeRotationTracker>, Without<ShiftForN>)>,
+    render_query: Query<Entity, (With<MazeRotationTracker>, Without<MarkedForRemove>)>,
     mut axis_changed: EventReader<AxisChanged>,
 ) {
     for axis in axis_changed.iter() {
         for e in render_query.iter() {
-            c.entity(e).insert(ShiftForN {
-                rot: Range::new(Quat::IDENTITY, get_rot_from_axis(axis)),
-                sca: Range::new(Vec3::new(1.0, 1.0, 1.0), Vec3::new(1.0, 0.0, 1.0)),
-                start_time: time.last_update().unwrap(),
-                duration: Duration::from_millis(200),
-                remove_entity: true,
-            });
+            c.entity(e)
+                .insert(ShiftForN {
+                    rot: Range::new(Quat::IDENTITY, get_rot_from_axis(axis)),
+                    sca: Range::new(Vec3::new(1.0, 1.0, 1.0), Vec3::new(1.0, 0.0, 1.0)),
+                    start_time: time.last_update().unwrap(),
+                    duration: Duration::from_millis(200),
+                    remove_entity: true,
+                })
+                .insert(MarkedForRemove);
         }
     }
 }
@@ -219,6 +217,9 @@ impl<Val: Lerpable> Range<Val> {
 }
 
 #[derive(Component)]
+pub struct MarkedForRemove;
+
+#[derive(Component)]
 pub struct ShiftForN {
     start_time: Instant,
     duration: Duration,
@@ -231,8 +232,8 @@ pub fn rotate_for_n_update(time: Res<Time>, mut rotator: Query<(&ShiftForN, &mut
     for (shift, mut trs) in rotator.iter_mut() {
         let lerp_val = (time.last_update().unwrap() - shift.start_time).as_secs_f32()
             / shift.duration.as_secs_f32();
-        *trs = Transform::from_rotation(shift.rot.get(lerp_val))
-            * Transform::from_scale(shift.sca.get(lerp_val));
+        trs.rotation = shift.rot.get(lerp_val);
+        trs.scale = shift.sca.get(lerp_val);
     }
 }
 
