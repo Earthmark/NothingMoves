@@ -1,8 +1,79 @@
-use super::{loader::MazeAssets, maze_level::*};
+use super::maze_level::*;
 use bevy::prelude::*;
 use std::cmp::Ordering;
 use std::f32::consts::PI;
 use std::time::{Duration, Instant};
+
+pub struct MazeRendererPlugin;
+
+impl Plugin for MazeRendererPlugin {
+    fn build(&self, app: &mut App) {
+        app.add_startup_system(load_maze_assets)
+            .add_system_set(SystemSet::on_enter(crate::AppState::InMaze).with_system(spawn_player))
+            .add_system_set(
+                SystemSet::on_update(crate::AppState::InMaze)
+                    .with_system(maze_level_renderer)
+                    .with_system(rotate_for_n_update)
+                    .with_system(remove_after_time)
+                    .with_system(update_maze_offset.after(maze_level_renderer))
+                    .with_system(start_despawn_of_render),
+            );
+    }
+}
+
+fn load_maze_assets(
+    mut c: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+) {
+    c.insert_resource(MazeAssets {
+        joint: meshes.add(Mesh::from(shape::Box::new(0.2, 1.0, 0.2))),
+        wall: meshes.add(Mesh::from(shape::Box::new(0.1, 0.6, 1.0))),
+        material: materials.add(Color::rgb(0.8, 0.7, 0.6).into()),
+    });
+}
+
+#[derive(Component)]
+struct MazeAssets {
+    joint: Handle<Mesh>,
+    wall: Handle<Mesh>,
+    material: Handle<StandardMaterial>,
+}
+
+impl MazeAssets {
+    pub fn wall(&self, transform: Transform) -> PbrBundle {
+        PbrBundle {
+            mesh: self.wall.clone(),
+            material: self.material.clone(),
+            transform,
+            ..Default::default()
+        }
+    }
+
+    pub fn joint(&self, transform: Transform) -> PbrBundle {
+        PbrBundle {
+            mesh: self.joint.clone(),
+            material: self.material.clone(),
+            transform,
+            ..Default::default()
+        }
+    }
+}
+
+fn spawn_player(
+    mut c: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+) {
+    c.spawn_bundle(PbrBundle {
+        mesh: meshes.add(Mesh::from(shape::Capsule {
+            radius: 0.3,
+            ..default()
+        })),
+        material: materials.add(Color::rgb(0.5, 0.5, 0.8).into()),
+        ..Default::default()
+    });
+}
 
 #[derive(Bundle, Default)]
 pub struct MazePositionTrackerBundle {
@@ -21,11 +92,11 @@ fn maze_level_offset(maze: &MazeLevel, axis: [u8; 2]) -> Vec3 {
     Vec3::new(-(p[0] as f32), 0.0, -(p[1] as f32))
 }
 
-pub fn update_maze_offset(
+fn update_maze_offset(
     level: Res<MazeLevel>,
     mut maze_query: Query<(&MazePositionTracker, &mut Transform)>,
-    mut position_changed: EventReader<PositionChanged>,
-    mut axis_changed: EventReader<AxisChanged>,
+    mut position_changed: EventReader<super::PositionChanged>,
+    mut axis_changed: EventReader<super::AxisChanged>,
 ) {
     let mut update_pos = || {
         for (renderer, mut trs) in maze_query.iter_mut() {
@@ -41,21 +112,21 @@ pub fn update_maze_offset(
 }
 
 #[derive(Bundle, Default)]
-pub struct MazeRotationTrackerBundle {
+struct MazeRotationTrackerBundle {
     pub position_tracker: MazeRotationTracker,
     pub transform: Transform,
     pub global_transform: GlobalTransform,
 }
 
 #[derive(Component, Default)]
-pub struct MazeRotationTracker;
+struct MazeRotationTracker;
 
 // The maze hierarchy is as follows:
 // - Rotate - (player assumed to be in the center)
 //  - Player Offset / scale - (enforces the player is in the center)
 //   - Walls
 
-fn get_rot_from_axis(axis: &AxisChanged) -> Quat {
+fn get_rot_from_axis(axis: &super::AxisChanged) -> Quat {
     let length = PI / 4.0;
     let x_axis = match axis.axis[0].cmp(&axis.previous_axis[0]) {
         Ordering::Greater => Quat::from_euler(EulerRot::XYZ, 0.0, 0.0, -length),
@@ -70,12 +141,12 @@ fn get_rot_from_axis(axis: &AxisChanged) -> Quat {
     x_axis * y_axis
 }
 
-pub fn maze_level_renderer(
+fn maze_level_renderer(
     time: Res<Time>,
     level: Res<MazeLevel>,
     assets: Res<MazeAssets>,
     mut c: Commands,
-    mut axis_changed: EventReader<AxisChanged>,
+    mut axis_changed: EventReader<super::AxisChanged>,
 ) {
     for axis in axis_changed.iter() {
         let start = get_rot_from_axis(axis).inverse();
@@ -165,11 +236,11 @@ pub fn maze_level_renderer(
     }
 }
 
-pub fn start_despawn_of_render(
+fn start_despawn_of_render(
     time: Res<Time>,
     mut c: Commands,
     render_query: Query<Entity, (With<MazeRotationTracker>, Without<MarkedForRemove>)>,
-    mut axis_changed: EventReader<AxisChanged>,
+    mut axis_changed: EventReader<super::AxisChanged>,
 ) {
     for axis in axis_changed.iter() {
         for e in render_query.iter() {
@@ -217,10 +288,10 @@ impl<Val: Lerpable> Range<Val> {
 }
 
 #[derive(Component)]
-pub struct MarkedForRemove;
+struct MarkedForRemove;
 
 #[derive(Component)]
-pub struct ShiftForN {
+struct ShiftForN {
     start_time: Instant,
     duration: Duration,
     rot: Range<Quat>,
@@ -228,7 +299,7 @@ pub struct ShiftForN {
     remove_entity: bool,
 }
 
-pub fn rotate_for_n_update(time: Res<Time>, mut rotator: Query<(&ShiftForN, &mut Transform)>) {
+fn rotate_for_n_update(time: Res<Time>, mut rotator: Query<(&ShiftForN, &mut Transform)>) {
     for (shift, mut trs) in rotator.iter_mut() {
         let lerp_val = (time.last_update().unwrap() - shift.start_time).as_secs_f32()
             / shift.duration.as_secs_f32();
@@ -237,7 +308,7 @@ pub fn rotate_for_n_update(time: Res<Time>, mut rotator: Query<(&ShiftForN, &mut
     }
 }
 
-pub fn remove_after_time(mut c: Commands, time: Res<Time>, query: Query<(Entity, &ShiftForN)>) {
+fn remove_after_time(mut c: Commands, time: Res<Time>, query: Query<(Entity, &ShiftForN)>) {
     for (e, r) in query.iter() {
         if time.last_update() >= Some(r.start_time + r.duration) {
             if r.remove_entity {

@@ -2,6 +2,7 @@
 
 mod level;
 mod maze;
+mod menu;
 
 use bevy::prelude::*;
 
@@ -16,7 +17,7 @@ fn main() {
     App::new()
         .add_state(AppState::MainMenu)
         .add_plugins(DefaultPlugins)
-        .add_plugin(level::LevelPlugin)
+        .add_plugins(level::LevelPluginBundle)
         .add_startup_system(setup)
         .run();
 }

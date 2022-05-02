@@ -8,18 +8,6 @@ struct MazeImpl<const DIMS: usize> {
     axis: [u8; 2],
 }
 
-#[derive(Clone, Debug)]
-pub struct AxisChanged {
-    pub axis: [u8; 2],
-    pub previous_axis: [u8; 2],
-}
-
-#[derive(Clone, Debug)]
-pub struct PositionChanged {
-    pub position: [u8; 2],
-    pub previous_position: [u8; 2],
-}
-
 #[derive(PartialEq, Eq, Clone, Copy)]
 pub enum Axis {
     X,
@@ -55,12 +43,14 @@ pub enum Direction {
 }
 
 impl Direction {
+    /*
     fn shift_wrapped(&self, value: u8, limit: u8) -> u8 {
         (match self {
             Direction::Positive => value.checked_add(1).unwrap_or(0),
             Direction::Negative => value.checked_sub(1).unwrap_or(limit - 1),
         } % limit)
     }
+     */
 
     fn shift_clamped(&self, value: u8, limit: u8) -> u8 {
         match self {

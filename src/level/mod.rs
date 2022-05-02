@@ -1,11 +1,10 @@
+mod bundle;
 mod input;
 mod loader;
 mod maze_level;
 mod maze_renderer;
 mod maze_ui_renderer;
-mod plugin;
 
-use maze_level::MazeLevel;
-
-pub use loader::{DimensionLength, LoadLevel};
-pub use plugin::LevelPlugin;
+pub use bundle::LevelPluginBundle;
+pub use input::{AxisChanged, PositionChanged};
+pub use loader::{DimensionLength, LoadLevel, RngSource};

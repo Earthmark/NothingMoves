@@ -1,6 +1,20 @@
 use super::maze_level::{self, *};
 use bevy::prelude::*;
 
+pub struct MazeUiRendererPlugin;
+
+impl Plugin for MazeUiRendererPlugin {
+    fn build(&self, app: &mut App) {
+        app.add_system_set(SystemSet::on_enter(crate::AppState::InMaze).with_system(spawn_ui));
+        app.add_system_set(
+            SystemSet::on_update(crate::AppState::InMaze)
+                .with_system(maze_axis_label_update_listener)
+                .with_system(maze_position_label_update_listener)
+                .with_system(maze_axis_label_background_updater),
+        );
+    }
+}
+
 // Current dimension status text layout:
 // Show inactive as greyed out.
 
@@ -30,7 +44,7 @@ use bevy::prelude::*;
 //   (false, None) -> Greyed out circle,
 // }
 
-pub fn spawn_ui(mut c: Commands, maze: Res<MazeLevel>, assets: Res<AssetServer>) {
+fn spawn_ui(mut c: Commands, maze: Res<MazeLevel>, assets: Res<AssetServer>) {
     let style = TextStyle {
         font: assets.load("fonts\\UnicaOne-Regular.ttf"),
         font_size: 50.0,
@@ -182,16 +196,16 @@ pub fn spawn_ui(mut c: Commands, maze: Res<MazeLevel>, assets: Res<AssetServer>)
 }
 
 #[derive(Component, Clone)]
-pub struct MazeAxisLabel {
+struct MazeAxisLabel {
     dim: u8,
     dir: maze_level::Direction,
 }
 
-pub fn maze_axis_label_background_updater(
+fn maze_axis_label_background_updater(
     level: Res<MazeLevel>,
     mut query: Query<(&MazeAxisLabel, &mut UiColor)>,
-    mut axis_changed: EventReader<AxisChanged>,
-    mut position_changed: EventReader<PositionChanged>,
+    mut axis_changed: EventReader<super::AxisChanged>,
+    mut position_changed: EventReader<super::PositionChanged>,
 ) {
     let mut update_bg = || {
         for (axis, mut ui_color) in query.iter_mut() {
@@ -210,9 +224,9 @@ pub fn maze_axis_label_background_updater(
     }
 }
 
-pub fn maze_axis_label_update_listener(
+fn maze_axis_label_update_listener(
     mut query: Query<(&MazeAxisLabel, &mut Text)>,
-    mut axis_changed: EventReader<AxisChanged>,
+    mut axis_changed: EventReader<super::AxisChanged>,
 ) {
     for changed in axis_changed.iter() {
         for (label, mut text) in query.iter_mut() {
@@ -234,14 +248,14 @@ pub fn maze_axis_label_update_listener(
 }
 
 #[derive(Component)]
-pub struct MazePositionLabel {
+struct MazePositionLabel {
     dimension: usize,
 }
 
-pub fn maze_position_label_update_listener(
+fn maze_position_label_update_listener(
     maze: Res<MazeLevel>,
     mut query: Query<(&MazePositionLabel, &mut Text)>,
-    mut position_changed: EventReader<PositionChanged>,
+    mut position_changed: EventReader<super::PositionChanged>,
 ) {
     for _ in position_changed.iter() {
         for (label, mut text) in query.iter_mut() {

@@ -2,10 +2,15 @@ use crate::AppState;
 use bevy::prelude::*;
 use rand::prelude::*;
 
-use super::{
-    maze_level::{AxisChanged, PositionChanged},
-    MazeLevel,
-};
+use super::maze_level::MazeLevel;
+
+pub struct MazeLoaderPlugin;
+
+impl Plugin for MazeLoaderPlugin {
+    fn build(&self, app: &mut App) {
+        app.add_system(level_load_system).add_event::<LoadLevel>();
+    }
+}
 
 #[derive(Clone, Debug)]
 pub struct LoadLevel {
@@ -38,7 +43,7 @@ impl Default for LoadLevel {
     }
 }
 
-pub fn level_load_system(
+fn level_load_system(
     mut c: Commands,
     mut events: EventReader<LoadLevel>,
     mut app_state: ResMut<State<AppState>>,
@@ -55,74 +60,5 @@ pub fn level_load_system(
             DimensionLength::Six(lengths) => MazeLevel::new(&lengths, &mut rng),
         });
         app_state.push(AppState::InMaze).unwrap();
-    }
-}
-
-pub fn initial_events_on_load(
-    maze: Res<MazeLevel>,
-    mut position_changed: EventWriter<PositionChanged>,
-    mut axis_changed: EventWriter<AxisChanged>,
-) {
-    position_changed.send(PositionChanged {
-        position: maze.pos(),
-        previous_position: maze.pos(),
-    });
-    axis_changed.send(AxisChanged {
-        axis: maze.axis(),
-        previous_axis: maze.axis(),
-    });
-}
-
-pub fn load_maze_assets(
-    mut c: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-) {
-    c.insert_resource(MazeAssets {
-        joint: meshes.add(Mesh::from(shape::Box::new(0.2, 1.0, 0.2))),
-        wall: meshes.add(Mesh::from(shape::Box::new(0.1, 0.6, 1.0))),
-        material: materials.add(Color::rgb(0.8, 0.7, 0.6).into()),
-    });
-}
-
-pub fn spawn_player(
-    mut c: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-) {
-    c.spawn_bundle(PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Capsule {
-            radius: 0.3,
-            ..default()
-        })),
-        material: materials.add(Color::rgb(0.5, 0.5, 0.8).into()),
-        ..Default::default()
-    });
-}
-
-#[derive(Component)]
-pub struct MazeAssets {
-    joint: Handle<Mesh>,
-    wall: Handle<Mesh>,
-    material: Handle<StandardMaterial>,
-}
-
-impl MazeAssets {
-    pub fn wall(&self, transform: Transform) -> PbrBundle {
-        PbrBundle {
-            mesh: self.wall.clone(),
-            material: self.material.clone(),
-            transform,
-            ..Default::default()
-        }
-    }
-
-    pub fn joint(&self, transform: Transform) -> PbrBundle {
-        PbrBundle {
-            mesh: self.joint.clone(),
-            material: self.material.clone(),
-            transform,
-            ..Default::default()
-        }
     }
 }
