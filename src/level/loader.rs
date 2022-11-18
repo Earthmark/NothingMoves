@@ -59,6 +59,6 @@ fn level_load_system(
             DimensionLength::Five(lengths) => MazeLevel::new(&lengths, &mut rng),
             DimensionLength::Six(lengths) => MazeLevel::new(&lengths, &mut rng),
         });
-        app_state.push(AppState::InMaze).unwrap();
+        app_state.overwrite_push(AppState::InMaze).unwrap();
     }
 }

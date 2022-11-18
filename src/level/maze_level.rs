@@ -1,5 +1,7 @@
 use std::ops::{Deref, DerefMut};
 
+use bevy::prelude::Resource;
+
 use crate::maze;
 
 struct MazeImpl<const DIMS: usize> {
@@ -190,6 +192,7 @@ pub trait MazeView: Sync + Send {
     fn wall_in_current(&self, position: [u8; 2], axis: Axis) -> bool;
 }
 
+#[derive(Resource)]
 pub struct MazeLevel {
     inner: Box<dyn MazeView>,
 }

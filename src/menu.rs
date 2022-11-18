@@ -9,4 +9,4 @@ impl Plugin for MainMenuPlugin {
     }
 }
 
-fn setup_main_menu(mut c: Commands) {}
+fn setup_main_menu(mut _c: Commands) {}

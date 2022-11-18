@@ -33,7 +33,7 @@ fn load_maze_assets(
     });
 }
 
-#[derive(Component)]
+#[derive(Resource)]
 struct MazeAssets {
     joint: Handle<Mesh>,
     wall: Handle<Mesh>,
@@ -65,7 +65,7 @@ fn spawn_player(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    c.spawn_bundle(PbrBundle {
+    c.spawn(PbrBundle {
         mesh: meshes.add(Mesh::from(shape::Capsule {
             radius: 0.3,
             ..default()
@@ -80,6 +80,8 @@ pub struct MazePositionTrackerBundle {
     pub position_tracker: MazePositionTracker,
     pub transform: Transform,
     pub global_transform: GlobalTransform,
+    pub computed_visibility: ComputedVisibility,
+    pub visibility: Visibility,
 }
 
 #[derive(Component, Default)]
@@ -116,6 +118,8 @@ struct MazeRotationTrackerBundle {
     pub position_tracker: MazeRotationTracker,
     pub transform: Transform,
     pub global_transform: GlobalTransform,
+    pub computed_visibility: ComputedVisibility,
+    pub visibility: Visibility,
 }
 
 #[derive(Component, Default)]
@@ -150,7 +154,7 @@ fn maze_level_renderer(
 ) {
     for axis in axis_changed.iter() {
         let start = get_rot_from_axis(axis).inverse();
-        c.spawn_bundle(MazeRotationTrackerBundle {
+        c.spawn(MazeRotationTrackerBundle {
             position_tracker: MazeRotationTracker,
             transform: Transform::from_rotation(start),
             ..default()
@@ -163,7 +167,7 @@ fn maze_level_renderer(
             remove_entity: false,
         })
         .with_children(|c| {
-            c.spawn_bundle(MazePositionTrackerBundle {
+            c.spawn(MazePositionTrackerBundle {
                 position_tracker: MazePositionTracker {
                     visible_axis: level.axis(),
                 },
@@ -178,27 +182,27 @@ fn maze_level_renderer(
                 let [px, py] = level.pos_limit();
                 let lx = px as f32;
                 let ly = py as f32;
-                c.spawn_bundle(
+                c.spawn(
                     assets.wall(
                         Transform::from_xyz((lx / 2.0) - 0.5, 0.0, -0.5)
                             .with_scale(Vec3::new(1.0, 1.0, lx))
                             .with_rotation(Quat::from_rotation_y(PI / 2.0)),
                     ),
                 );
-                c.spawn_bundle(
+                c.spawn(
                     assets.wall(
                         Transform::from_xyz((lx / 2.0) - 0.5, 0.0, ly - 0.5)
                             .with_scale(Vec3::new(1.0, 1.0, lx))
                             .with_rotation(Quat::from_rotation_y(PI / 2.0)),
                     ),
                 );
-                c.spawn_bundle(
+                c.spawn(
                     assets.wall(
                         Transform::from_xyz(-0.5, 0.0, (ly / 2.0) - 0.5)
                             .with_scale(Vec3::new(1.0, 1.0, ly)),
                     ),
                 );
-                c.spawn_bundle(
+                c.spawn(
                     assets.wall(
                         Transform::from_xyz(lx - 0.5, 0.0, (ly / 2.0) - 0.5)
                             .with_scale(Vec3::new(1.0, 1.0, ly)),
@@ -209,7 +213,7 @@ fn maze_level_renderer(
                 let [psx, psy] = level.pos_limit();
                 for x in 0..psx + 1 {
                     for y in 0..psy + 1 {
-                        c.spawn_bundle(assets.joint(Transform::from_xyz(
+                        c.spawn(assets.joint(Transform::from_xyz(
                             x as f32 - 0.5,
                             0.0,
                             y as f32 - 0.5,
@@ -227,7 +231,7 @@ fn maze_level_renderer(
                         Quat::from_rotation_y(PI / 2.0)
                     };
                     let position = p1.lerp(p2, 0.5);
-                    c.spawn_bundle(
+                    c.spawn(
                         assets.wall(Transform::from_translation(position).with_rotation(rotation)),
                     );
                 }

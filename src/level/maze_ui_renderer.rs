@@ -52,17 +52,17 @@ fn spawn_ui(mut c: Commands, maze: Res<MazeLevel>, assets: Res<AssetServer>) {
     };
 
     let label = |s: &str, c: Color| TextBundle {
-        text: Text::with_section(
+        text: Text::from_section(
             s,
             TextStyle {
                 color: c,
                 ..style.clone()
             },
-            TextAlignment {
-                vertical: VerticalAlign::Center,
-                horizontal: HorizontalAlign::Center,
-            },
-        ),
+        )
+        .with_alignment(TextAlignment {
+            vertical: VerticalAlign::Center,
+            horizontal: HorizontalAlign::Center,
+        }),
         style: Style {
             size: Size::new(Val::Auto, Val::Px(50.0)),
             ..default()
@@ -72,28 +72,26 @@ fn spawn_ui(mut c: Commands, maze: Res<MazeLevel>, assets: Res<AssetServer>) {
 
     let dimension_col = |dimension: usize| {
         move |c: &mut ChildBuilder| {
-            c.spawn_bundle(NodeBundle::default())
+            c.spawn(NodeBundle::default())
                 .with_children(|c| {
-                    c.spawn_bundle(label("-", Color::DARK_GRAY))
-                        .insert(MazeAxisLabel {
-                            dim: dimension as u8,
-                            dir: maze_level::Direction::Negative,
-                        });
+                    c.spawn(label("-", Color::DARK_GRAY)).insert(MazeAxisLabel {
+                        dim: dimension as u8,
+                        dir: maze_level::Direction::Negative,
+                    });
                 })
                 .insert(MazeAxisLabel {
                     dim: dimension as u8,
                     dir: maze_level::Direction::Negative,
                 });
-            c.spawn_bundle(label("#", Color::WHITE))
+            c.spawn(label("#", Color::WHITE))
                 .insert(MazePositionLabel { dimension });
 
-            c.spawn_bundle(NodeBundle::default())
+            c.spawn(NodeBundle::default())
                 .with_children(|c| {
-                    c.spawn_bundle(label("-", Color::DARK_GRAY))
-                        .insert(MazeAxisLabel {
-                            dim: dimension as u8,
-                            dir: maze_level::Direction::Positive,
-                        });
+                    c.spawn(label("-", Color::DARK_GRAY)).insert(MazeAxisLabel {
+                        dim: dimension as u8,
+                        dir: maze_level::Direction::Positive,
+                    });
                 })
                 .insert(MazeAxisLabel {
                     dim: dimension as u8,
@@ -102,38 +100,34 @@ fn spawn_ui(mut c: Commands, maze: Res<MazeLevel>, assets: Res<AssetServer>) {
         }
     };
 
-    c.spawn_bundle(NodeBundle {
+    c.spawn(NodeBundle {
         style: Style {
             flex_direction: FlexDirection::Column,
             ..default()
         },
-        color: Color::NONE.into(),
+        background_color: Color::NONE.into(),
         ..default()
     })
     .with_children(|c| {
-        c.spawn_bundle(NodeBundle {
+        c.spawn(NodeBundle {
             style: Style {
                 justify_content: JustifyContent::SpaceEvenly,
                 flex_direction: FlexDirection::Row,
                 align_items: AlignItems::Center,
                 ..default()
             },
-            color: Color::NONE.into(),
+            background_color: Color::NONE.into(),
             ..default()
         })
         .with_children(|c| {
             // Axis Shift Controls
-            c.spawn_bundle(TextBundle {
-                text: Text::with_section(
-                    "Z<W/S>X",
-                    style.clone(),
-                    TextAlignment {
-                        vertical: VerticalAlign::Center,
-                        horizontal: HorizontalAlign::Center,
-                    },
-                ),
+            c.spawn(TextBundle {
+                text: Text::from_section("Z<W/S>X", style.clone()).with_alignment(TextAlignment {
+                    vertical: VerticalAlign::Center,
+                    horizontal: HorizontalAlign::Center,
+                }),
                 style: Style {
-                    margin: Rect {
+                    margin: UiRect {
                         right: Val::Px(5.0),
                         ..default()
                     },
@@ -141,17 +135,13 @@ fn spawn_ui(mut c: Commands, maze: Res<MazeLevel>, assets: Res<AssetServer>) {
                 },
                 ..default()
             });
-            c.spawn_bundle(TextBundle {
-                text: Text::with_section(
-                    "Q<D/A>E",
-                    style.clone(),
-                    TextAlignment {
-                        vertical: VerticalAlign::Center,
-                        horizontal: HorizontalAlign::Center,
-                    },
-                ),
+            c.spawn(TextBundle {
+                text: Text::from_section("Q<D/A>E", style.clone()).with_alignment(TextAlignment {
+                    vertical: VerticalAlign::Center,
+                    horizontal: HorizontalAlign::Center,
+                }),
                 style: Style {
-                    margin: Rect {
+                    margin: UiRect {
                         left: Val::Px(5.0),
                         ..default()
                     },
@@ -161,36 +151,36 @@ fn spawn_ui(mut c: Commands, maze: Res<MazeLevel>, assets: Res<AssetServer>) {
             });
         });
 
-        c.spawn_bundle(NodeBundle {
+        c.spawn(NodeBundle {
             style: Style {
                 flex_direction: FlexDirection::Row,
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::FlexStart,
                 ..default()
             },
-            color: Color::NONE.into(),
+            background_color: Color::NONE.into(),
             ..default()
         })
         .with_children(|c| {
-            c.spawn_bundle(label("[", Color::WHITE));
+            c.spawn(label("[", Color::WHITE));
             for (i, _) in maze.dims_limit().iter().enumerate() {
-                c.spawn_bundle(NodeBundle {
+                c.spawn(NodeBundle {
                     style: Style {
                         flex_direction: FlexDirection::Column,
                         justify_content: JustifyContent::SpaceEvenly,
-                        margin: Rect {
+                        margin: UiRect {
                             left: Val::Px(3.0),
                             right: Val::Px(3.0),
                             ..default()
                         },
                         ..default()
                     },
-                    color: Color::NONE.into(),
+                    background_color: Color::NONE.into(),
                     ..default()
                 })
                 .with_children(dimension_col(i));
             }
-            c.spawn_bundle(label("]", Color::WHITE));
+            c.spawn(label("]", Color::WHITE));
         });
     });
 }
@@ -203,7 +193,7 @@ struct MazeAxisLabel {
 
 fn maze_axis_label_background_updater(
     level: Res<MazeLevel>,
-    mut query: Query<(&MazeAxisLabel, &mut UiColor)>,
+    mut query: Query<(&MazeAxisLabel, &mut BackgroundColor)>,
     mut axis_changed: EventReader<super::AxisChanged>,
     mut position_changed: EventReader<super::PositionChanged>,
 ) {
