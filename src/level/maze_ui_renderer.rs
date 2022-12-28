@@ -1,17 +1,27 @@
+use std::f32::consts::PI;
+
 use super::maze_level::{self, *};
 use bevy::prelude::*;
+
+use crate::CommonAssets;
 
 pub struct MazeUiRendererPlugin;
 
 impl Plugin for MazeUiRendererPlugin {
     fn build(&self, app: &mut App) {
-        app.add_system_set(SystemSet::on_enter(crate::AppState::InMaze).with_system(spawn_ui));
         app.add_system_set(
+            SystemSet::on_enter(crate::AppState::InMaze)
+                .with_system(spawn_ui)
+                .with_system(create_rotation_binder),
+        )
+        .add_system_set(
             SystemSet::on_update(crate::AppState::InMaze)
                 .with_system(maze_axis_label_update_listener)
                 .with_system(maze_position_label_update_listener)
-                .with_system(maze_axis_label_background_updater),
-        );
+                .with_system(maze_axis_label_background_updater)
+                .with_system(update_guide_arrows),
+        )
+        .add_startup_system(MazeUiResources::load_resource);
     }
 }
 
@@ -44,19 +54,183 @@ impl Plugin for MazeUiRendererPlugin {
 //   (false, None) -> Greyed out circle,
 // }
 
-fn spawn_ui(mut c: Commands, maze: Res<MazeLevel>, assets: Res<AssetServer>) {
-    let style = TextStyle {
-        font: assets.load("fonts\\UnicaOne-Regular.ttf"),
-        font_size: 50.0,
-        ..default()
-    };
+#[derive(Resource)]
+struct MazeUiResources {
+    rotate_arrow: Handle<Image>,
+    rotate_arrow_inactive: Handle<Image>,
+    rotate_arrow_flip: Handle<Image>,
+    rotate_arrow_flip_inactive: Handle<Image>,
+    move_arrow: Handle<Image>,
+    move_arrow_inactive: Handle<Image>,
+}
 
+#[derive(Component)]
+struct DimensionArrowUpdater {
+    flipped: bool,
+    enabled: bool,
+}
+
+fn update_guide_arrows(
+    ui_assets: Res<MazeUiResources>,
+    mut axis_changed: EventReader<super::AxisChanged>,
+    mut query: Query<(&DimensionArrowUpdater, &mut UiImage)>,
+) {
+    for _ in axis_changed.iter() {
+        for (dim, mut img) in query.iter_mut() {
+            *img = match (dim.enabled, dim.flipped) {
+                (true, true) => &ui_assets.rotate_arrow_flip,
+                (true, false) => &ui_assets.rotate_arrow,
+                (false, true) => &ui_assets.rotate_arrow_flip_inactive,
+                (false, false) => &ui_assets.rotate_arrow_inactive,
+            }
+            .clone()
+            .into();
+        }
+    }
+}
+
+impl MazeUiResources {
+    pub fn load_resource(mut c: Commands, assets: Res<AssetServer>) {
+        c.insert_resource(Self::load(assets))
+    }
+
+    //pub fn drop_resource(mut c: Commands) {
+    //    c.remove_resource::<Self>()
+    //}
+
+    fn load(asset_server: Res<AssetServer>) -> Self {
+        Self {
+            rotate_arrow: asset_server.load("textures\\circle_arrow.png"),
+            rotate_arrow_inactive: asset_server.load("textures\\circle_dash_arrow.png"),
+            rotate_arrow_flip: asset_server.load("textures\\circle_arrow_flip.png"),
+            rotate_arrow_flip_inactive: asset_server.load("textures\\circle_dash_arrow_flip.png"),
+            move_arrow: asset_server.load("textures\\arrow.png"),
+            move_arrow_inactive: asset_server.load("textures\\dash_arrow.png"),
+        }
+    }
+}
+
+fn create_rotation_binder(
+    mut c: Commands,
+    common_assets: Res<CommonAssets>,
+    ui_assets: Res<MazeUiResources>,
+) {
+    c.spawn(NodeBundle {
+        style: Style {
+            position_type: PositionType::Absolute,
+            flex_direction: FlexDirection::Column,
+            margin: UiRect::all(Val::Px(10.0)),
+            align_items: AlignItems::Center,
+            size: Size::new(Val::Percent(20.0), Val::Percent(30.0)),
+            position: UiRect {
+                left: Val::Px(0.0),
+                right: Val::Undefined,
+                top: Val::Undefined,
+                bottom: Val::Px(0.0),
+            },
+            ..default()
+        },
+        ..default()
+    })
+    .with_children(|c| {
+        c.spawn(NodeBundle {
+            style: Style {
+                flex_direction: FlexDirection::Column,
+                align_items: AlignItems::Center,
+                ..default()
+            },
+            ..default()
+        })
+        .with_children(|c| {
+            c.spawn(TextBundle {
+                text: Text::from_section("Q", common_assets.common_text_style()),
+                style: Style {
+                    position_type: PositionType::Absolute,
+                    position: UiRect::bottom(Val::Percent(5.0)),
+                    ..default()
+                },
+                ..default()
+            });
+            c.spawn((
+                ImageBundle {
+                    image: ui_assets.rotate_arrow.clone().into(),
+                    ..default()
+                },
+                DimensionArrowUpdater {
+                    flipped: false,
+                    enabled: true,
+                },
+            ));
+        });
+
+        c.spawn(NodeBundle {
+            style: Style {
+                align_items: AlignItems::Center,
+                size: Size::new(Val::Percent(100.0), Val::Percent(40.0)),
+                ..default()
+            },
+            ..default()
+        })
+        .with_children(|c| {
+            c.spawn(TextBundle {
+                text: Text::from_section("A", common_assets.common_text_style()),
+                ..default()
+            });
+            c.spawn(ImageBundle {
+                image: ui_assets.move_arrow.clone().into(),
+                ..default()
+            });
+            c.spawn(ImageBundle {
+                transform: Transform::from_rotation(Quat::from_rotation_z(PI)),
+                image: ui_assets.move_arrow_inactive.clone().into(),
+                ..default()
+            });
+            c.spawn(TextBundle {
+                text: Text::from_section("D", common_assets.common_text_style()),
+                ..default()
+            });
+        });
+
+        c.spawn(NodeBundle {
+            style: Style {
+                flex_direction: FlexDirection::ColumnReverse,
+                align_items: AlignItems::Center,
+                ..default()
+            },
+            ..default()
+        })
+        .with_children(|c| {
+            c.spawn(TextBundle {
+                text: Text::from_section("E", common_assets.common_text_style()),
+                style: Style {
+                    position_type: PositionType::Absolute,
+                    position: UiRect::top(Val::Percent(5.0)),
+                    ..default()
+                },
+                ..default()
+            });
+            c.spawn((
+                ImageBundle {
+                    transform: Transform::from_rotation(Quat::from_rotation_z(PI)),
+                    image: ui_assets.rotate_arrow_flip_inactive.clone().into(),
+                    ..default()
+                },
+                DimensionArrowUpdater {
+                    flipped: true,
+                    enabled: true,
+                },
+            ));
+        });
+    });
+}
+
+fn spawn_ui(mut c: Commands, maze: Res<MazeLevel>, common_assets: Res<CommonAssets>) {
     let label = |s: &str, c: Color| TextBundle {
         text: Text::from_section(
             s,
             TextStyle {
                 color: c,
-                ..style.clone()
+                ..common_assets.common_text_style()
             },
         )
         .with_alignment(TextAlignment {
@@ -72,31 +246,40 @@ fn spawn_ui(mut c: Commands, maze: Res<MazeLevel>, assets: Res<AssetServer>) {
 
     let dimension_col = |dimension: usize| {
         move |c: &mut ChildBuilder| {
-            c.spawn(NodeBundle::default())
-                .with_children(|c| {
-                    c.spawn(label("-", Color::DARK_GRAY)).insert(MazeAxisLabel {
-                        dim: dimension as u8,
-                        dir: maze_level::Direction::Negative,
-                    });
-                })
-                .insert(MazeAxisLabel {
+            c.spawn((
+                NodeBundle::default(),
+                MazeAxisLabel {
                     dim: dimension as u8,
                     dir: maze_level::Direction::Negative,
-                });
-            c.spawn(label("#", Color::WHITE))
-                .insert(MazePositionLabel { dimension });
-
-            c.spawn(NodeBundle::default())
-                .with_children(|c| {
-                    c.spawn(label("-", Color::DARK_GRAY)).insert(MazeAxisLabel {
+                },
+            ))
+            .with_children(|c| {
+                c.spawn((
+                    label("-", Color::DARK_GRAY),
+                    MazeAxisLabel {
                         dim: dimension as u8,
-                        dir: maze_level::Direction::Positive,
-                    });
-                })
-                .insert(MazeAxisLabel {
+                        dir: maze_level::Direction::Negative,
+                    },
+                ));
+            });
+            c.spawn((label("#", Color::WHITE), MazePositionLabel { dimension }));
+
+            c.spawn((
+                NodeBundle::default(),
+                MazeAxisLabel {
                     dim: dimension as u8,
                     dir: maze_level::Direction::Positive,
-                });
+                },
+            ))
+            .with_children(|c| {
+                c.spawn((
+                    label("-", Color::DARK_GRAY),
+                    MazeAxisLabel {
+                        dim: dimension as u8,
+                        dir: maze_level::Direction::Positive,
+                    },
+                ));
+            });
         }
     };
 
@@ -105,52 +288,9 @@ fn spawn_ui(mut c: Commands, maze: Res<MazeLevel>, assets: Res<AssetServer>) {
             flex_direction: FlexDirection::Column,
             ..default()
         },
-        background_color: Color::NONE.into(),
         ..default()
     })
     .with_children(|c| {
-        c.spawn(NodeBundle {
-            style: Style {
-                justify_content: JustifyContent::SpaceEvenly,
-                flex_direction: FlexDirection::Row,
-                align_items: AlignItems::Center,
-                ..default()
-            },
-            background_color: Color::NONE.into(),
-            ..default()
-        })
-        .with_children(|c| {
-            // Axis Shift Controls
-            c.spawn(TextBundle {
-                text: Text::from_section("Z<W/S>X", style.clone()).with_alignment(TextAlignment {
-                    vertical: VerticalAlign::Center,
-                    horizontal: HorizontalAlign::Center,
-                }),
-                style: Style {
-                    margin: UiRect {
-                        right: Val::Px(5.0),
-                        ..default()
-                    },
-                    ..default()
-                },
-                ..default()
-            });
-            c.spawn(TextBundle {
-                text: Text::from_section("Q<D/A>E", style.clone()).with_alignment(TextAlignment {
-                    vertical: VerticalAlign::Center,
-                    horizontal: HorizontalAlign::Center,
-                }),
-                style: Style {
-                    margin: UiRect {
-                        left: Val::Px(5.0),
-                        ..default()
-                    },
-                    ..default()
-                },
-                ..default()
-            });
-        });
-
         c.spawn(NodeBundle {
             style: Style {
                 flex_direction: FlexDirection::Row,
@@ -158,7 +298,6 @@ fn spawn_ui(mut c: Commands, maze: Res<MazeLevel>, assets: Res<AssetServer>) {
                 justify_content: JustifyContent::FlexStart,
                 ..default()
             },
-            background_color: Color::NONE.into(),
             ..default()
         })
         .with_children(|c| {
@@ -175,7 +314,6 @@ fn spawn_ui(mut c: Commands, maze: Res<MazeLevel>, assets: Res<AssetServer>) {
                         },
                         ..default()
                     },
-                    background_color: Color::NONE.into(),
                     ..default()
                 })
                 .with_children(dimension_col(i));

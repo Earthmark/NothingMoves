@@ -3,8 +3,11 @@
 mod level;
 mod maze;
 mod menu;
+mod assets;
 
 use bevy::prelude::*;
+
+use assets::CommonAssets;
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub enum AppState {
@@ -16,9 +19,23 @@ pub enum AppState {
 fn main() {
     App::new()
         .add_state(AppState::MainMenu)
-        .add_plugins(DefaultPlugins)
+        .add_plugins(
+            DefaultPlugins
+                .set(WindowPlugin {
+                    window: WindowDescriptor {
+                        title: "Nothing Moves".into(),
+                        ..default()
+                    },
+                    ..default()
+                })
+                .set(AssetPlugin {
+                    watch_for_changes: true,
+                    ..default()
+                }),
+        ).add_plugin(bevy_inspector_egui::WorldInspectorPlugin::new())
         .add_plugins(level::LevelPluginBundle)
         .add_startup_system(setup)
+        .add_startup_system(CommonAssets::load_resource)
         .run();
 }
 

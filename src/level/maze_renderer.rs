@@ -2,7 +2,7 @@ use super::maze_level::*;
 use bevy::prelude::*;
 use std::cmp::Ordering;
 use std::f32::consts::PI;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 pub struct MazeRendererPlugin;
 
@@ -14,7 +14,8 @@ impl Plugin for MazeRendererPlugin {
                 SystemSet::on_update(crate::AppState::InMaze)
                     .with_system(maze_level_renderer)
                     .with_system(rotate_for_n_update)
-                    .with_system(remove_after_time)
+                    .with_system(remove_after_time::<RemoveAt>)
+                    .with_system(remove_after_time::<ShiftForN>)
                     .with_system(update_maze_offset.after(maze_level_renderer))
                     .with_system(start_despawn_of_render),
             );
@@ -96,13 +97,23 @@ fn maze_level_offset(maze: &MazeLevel, axis: [u8; 2]) -> Vec3 {
 
 fn update_maze_offset(
     level: Res<MazeLevel>,
-    mut maze_query: Query<(&MazePositionTracker, &mut Transform)>,
+    time: Res<Time>,
+    mut c: Commands,
+    mut maze_query: Query<(Entity, &MazePositionTracker, &Transform), Without<RemoveAt>>,
     mut position_changed: EventReader<super::PositionChanged>,
     mut axis_changed: EventReader<super::AxisChanged>,
 ) {
     let mut update_pos = || {
-        for (renderer, mut trs) in maze_query.iter_mut() {
-            trs.translation = maze_level_offset(level.as_ref(), renderer.visible_axis);
+        for (e, renderer, trs) in maze_query.iter_mut() {
+            if let Some(mut c) = c.get_entity(e) {
+                c.insert(ShiftForN {
+                    duration: Duration::from_millis(100),
+                    start: *trs,
+                    end: (*trs)
+                        .with_translation(maze_level_offset(level.as_ref(), renderer.visible_axis)),
+                    ..ShiftForN::new(time.elapsed())
+                });
+            }
         }
     };
     for _ in position_changed.iter() {
@@ -154,18 +165,18 @@ fn maze_level_renderer(
 ) {
     for axis in axis_changed.iter() {
         let start = get_rot_from_axis(axis).inverse();
-        c.spawn(MazeRotationTrackerBundle {
-            position_tracker: MazeRotationTracker,
-            transform: Transform::from_rotation(start),
-            ..default()
-        })
-        .insert(ShiftForN {
-            rot: Range::new(start, Quat::IDENTITY),
-            sca: Range::new(Vec3::new(1.0, 0.0, 1.0), Vec3::new(1.0, 1.0, 1.0)),
-            start_time: time.last_update().unwrap(),
-            duration: Duration::from_millis(200),
-            remove_entity: false,
-        })
+        c.spawn((
+            MazeRotationTrackerBundle {
+                position_tracker: MazeRotationTracker,
+                transform: Transform::from_rotation(start),
+                ..default()
+            },
+            ShiftForN {
+                start: Transform::from_rotation(start).with_scale(Vec3::new(1.0, 0.0, 1.0)),
+                duration: Duration::from_millis(200),
+                ..ShiftForN::new(time.elapsed())
+            },
+        ))
         .with_children(|c| {
             c.spawn(MazePositionTrackerBundle {
                 position_tracker: MazePositionTracker {
@@ -243,83 +254,106 @@ fn maze_level_renderer(
 fn start_despawn_of_render(
     time: Res<Time>,
     mut c: Commands,
-    render_query: Query<Entity, (With<MazeRotationTracker>, Without<MarkedForRemove>)>,
+    render_query: Query<Entity, (With<MazeRotationTracker>, Without<RemoveAt>)>,
     mut axis_changed: EventReader<super::AxisChanged>,
 ) {
     for axis in axis_changed.iter() {
         for e in render_query.iter() {
-            c.entity(e)
-                .insert(ShiftForN {
-                    rot: Range::new(Quat::IDENTITY, get_rot_from_axis(axis)),
-                    sca: Range::new(Vec3::new(1.0, 1.0, 1.0), Vec3::new(1.0, 0.0, 1.0)),
-                    start_time: time.last_update().unwrap(),
-                    duration: Duration::from_millis(200),
-                    remove_entity: true,
-                })
-                .insert(MarkedForRemove);
+            if let Some(mut c) = c.get_entity(e) {
+                c.insert((
+                    ShiftForN {
+                        end: Transform::from_rotation(get_rot_from_axis(axis)),
+                        duration: Duration::from_millis(200),
+                        ..ShiftForN::new(time.elapsed())
+                    },
+                    RemoveAt {
+                        end_time: time.elapsed() + Duration::from_millis(200),
+                    },
+                ))
+                .remove::<MazeRotationTracker>();
+            }
         }
     }
 }
 
-trait Lerpable {
-    fn lerp(a: &Self, b: &Self, rate: f32) -> Self;
+trait TimedComponent {
+    fn end_time(&self) -> Duration;
+    fn on_elapsed(&self, c: &mut Commands, e: Entity);
 }
 
-impl Lerpable for Quat {
-    fn lerp(a: &Self, b: &Self, rate: f32) -> Self {
-        a.slerp(*b, rate)
+fn remove_after_time<Comp: TimedComponent + Component>(
+    mut c: Commands,
+    time: Res<Time>,
+    query: Query<(Entity, &Comp)>,
+) {
+    for (e, r) in query.iter() {
+        if time.elapsed() > r.end_time() {
+            r.on_elapsed(&mut c, e);
+        }
     }
 }
-
-impl Lerpable for Vec3 {
-    fn lerp(a: &Self, b: &Self, rate: f32) -> Self {
-        a.lerp(*b, rate)
-    }
-}
-
-struct Range<Val: Lerpable> {
-    start: Val,
-    end: Val,
-}
-
-impl<Val: Lerpable> Range<Val> {
-    fn new(start: Val, end: Val) -> Self {
-        Self { start, end }
-    }
-    fn get(&self, rate: f32) -> Val {
-        Val::lerp(&self.start, &self.end, rate)
-    }
-}
-
-#[derive(Component)]
-struct MarkedForRemove;
 
 #[derive(Component)]
 struct ShiftForN {
-    start_time: Instant,
+    start_time: Duration,
     duration: Duration,
-    rot: Range<Quat>,
-    sca: Range<Vec3>,
-    remove_entity: bool,
+    start: Transform,
+    end: Transform,
+}
+
+impl ShiftForN {
+    fn new(start_time: Duration) -> Self {
+        Self {
+            start_time,
+            duration: Default::default(),
+            start: Default::default(),
+            end: Default::default(),
+        }
+    }
+
+    fn lerp(&self, val: f32) -> Transform {
+        Transform {
+            translation: self.start.translation.lerp(self.end.translation, val),
+            rotation: self.start.rotation.slerp(self.end.rotation, val),
+            scale: self.start.scale.lerp(self.end.scale, val),
+        }
+    }
+}
+
+impl TimedComponent for ShiftForN {
+    fn end_time(&self) -> Duration {
+        self.start_time + self.duration
+    }
+
+    fn on_elapsed(&self, c: &mut Commands, e: Entity) {
+        if let Some(mut c) = c.get_entity(e) {
+            c.remove::<ShiftForN>();
+        }
+    }
 }
 
 fn rotate_for_n_update(time: Res<Time>, mut rotator: Query<(&ShiftForN, &mut Transform)>) {
     for (shift, mut trs) in rotator.iter_mut() {
-        let lerp_val = (time.last_update().unwrap() - shift.start_time).as_secs_f32()
-            / shift.duration.as_secs_f32();
-        trs.rotation = shift.rot.get(lerp_val);
-        trs.scale = shift.sca.get(lerp_val);
+        let lerp_val =
+            (time.elapsed() - shift.start_time).as_secs_f32() / shift.duration.as_secs_f32();
+        let lerp_val = lerp_val.clamp(0.0, 1.0);
+        *trs = shift.lerp(lerp_val);
     }
 }
 
-fn remove_after_time(mut c: Commands, time: Res<Time>, query: Query<(Entity, &ShiftForN)>) {
-    for (e, r) in query.iter() {
-        if time.last_update() >= Some(r.start_time + r.duration) {
-            if r.remove_entity {
-                c.entity(e).despawn_recursive();
-            } else {
-                c.entity(e).remove::<ShiftForN>();
-            }
+#[derive(Component)]
+struct RemoveAt {
+    end_time: Duration,
+}
+
+impl TimedComponent for RemoveAt {
+    fn end_time(&self) -> Duration {
+        self.end_time
+    }
+
+    fn on_elapsed(&self, c: &mut Commands, e: Entity) {
+        if let Some(c) = c.get_entity(e) {
+            c.despawn_recursive();
         }
     }
 }
