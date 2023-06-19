@@ -9,15 +9,17 @@ pub struct MazeRendererPlugin;
 impl Plugin for MazeRendererPlugin {
     fn build(&self, app: &mut App) {
         app.add_startup_system(load_maze_assets)
-            .add_system_set(SystemSet::on_enter(crate::AppState::InMaze).with_system(spawn_player))
-            .add_system_set(
-                SystemSet::on_update(crate::AppState::InMaze)
-                    .with_system(maze_level_renderer)
-                    .with_system(rotate_for_n_update)
-                    .with_system(remove_after_time::<RemoveAt>)
-                    .with_system(remove_after_time::<ShiftForN>)
-                    .with_system(update_maze_offset.after(maze_level_renderer))
-                    .with_system(start_despawn_of_render),
+            .add_system(spawn_player.in_schedule(OnEnter(crate::AppState::InMaze)))
+            .add_systems(
+                (
+                    maze_level_renderer,
+                    rotate_for_n_update,
+                    remove_after_time::<RemoveAt>,
+                    remove_after_time::<ShiftForN>,
+                    update_maze_offset.after(maze_level_renderer),
+                    start_despawn_of_render,
+                )
+                    .in_set(OnUpdate(crate::AppState::InMaze)),
             );
     }
 }

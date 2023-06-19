@@ -9,12 +9,8 @@ impl Plugin for MazeInputBundle {
     fn build(&self, app: &mut App) {
         app.add_event::<AxisChanged>()
             .add_event::<PositionChanged>()
-            .add_system_set(
-                SystemSet::on_enter(crate::AppState::InMaze).with_system(initial_events_on_load),
-            )
-            .add_system_set(
-                SystemSet::on_update(crate::AppState::InMaze).with_system(level_navigation),
-            );
+            .add_system(initial_events_on_load.in_schedule(OnEnter(crate::AppState::InMaze)))
+            .add_system(level_navigation.in_set(OnUpdate(crate::AppState::InMaze)));
     }
 }
 

@@ -9,17 +9,17 @@ pub struct MazeUiRendererPlugin;
 
 impl Plugin for MazeUiRendererPlugin {
     fn build(&self, app: &mut App) {
-        app.add_system_set(
-            SystemSet::on_enter(crate::AppState::InMaze)
-                .with_system(spawn_ui)
-                .with_system(create_rotation_binder),
+        app.add_systems(
+            (spawn_ui, create_rotation_binder).in_schedule(OnEnter(crate::AppState::InMaze)),
         )
-        .add_system_set(
-            SystemSet::on_update(crate::AppState::InMaze)
-                .with_system(maze_axis_label_update_listener)
-                .with_system(maze_position_label_update_listener)
-                .with_system(maze_axis_label_background_updater)
-                .with_system(update_guide_arrows),
+        .add_systems(
+            (
+                maze_axis_label_update_listener,
+                maze_position_label_update_listener,
+                maze_axis_label_background_updater,
+                update_guide_arrows,
+            )
+                .in_set(OnUpdate(crate::AppState::InMaze)),
         )
         .add_startup_system(MazeUiResources::load_resource);
     }
@@ -233,10 +233,7 @@ fn spawn_ui(mut c: Commands, maze: Res<MazeLevel>, common_assets: Res<CommonAsse
                 ..common_assets.common_text_style()
             },
         )
-        .with_alignment(TextAlignment {
-            vertical: VerticalAlign::Center,
-            horizontal: HorizontalAlign::Center,
-        }),
+        .with_alignment(TextAlignment::Center),
         style: Style {
             size: Size::new(Val::Auto, Val::Px(50.0)),
             ..default()

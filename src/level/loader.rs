@@ -46,7 +46,7 @@ impl Default for LoadLevel {
 fn level_load_system(
     mut c: Commands,
     mut events: EventReader<LoadLevel>,
-    mut app_state: ResMut<State<AppState>>,
+    mut app_state: ResMut<NextState<AppState>>,
 ) {
     for level_loader in events.iter() {
         let mut rng = match level_loader.rng_source {
@@ -59,6 +59,6 @@ fn level_load_system(
             DimensionLength::Five(lengths) => MazeLevel::new(&lengths, &mut rng),
             DimensionLength::Six(lengths) => MazeLevel::new(&lengths, &mut rng),
         });
-        app_state.overwrite_push(AppState::InMaze).unwrap();
+        app_state.set(AppState::InMaze);
     }
 }

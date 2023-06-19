@@ -1,16 +1,17 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod assets;
 mod level;
 mod maze;
 mod menu;
-mod assets;
 
 use bevy::prelude::*;
 
 use assets::CommonAssets;
 
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, States, Default)]
 pub enum AppState {
+    #[default]
     MainMenu,
     InMaze,
     Paused,
@@ -18,21 +19,11 @@ pub enum AppState {
 
 fn main() {
     App::new()
-        .add_state(AppState::MainMenu)
-        .add_plugins(
-            DefaultPlugins
-                .set(WindowPlugin {
-                    window: WindowDescriptor {
-                        title: "Nothing Moves".into(),
-                        ..default()
-                    },
-                    ..default()
-                })
-                .set(AssetPlugin {
-                    watch_for_changes: true,
-                    ..default()
-                }),
-        ).add_plugin(bevy_inspector_egui::WorldInspectorPlugin::new())
+        .add_state::<AppState>()
+        .add_plugins(DefaultPlugins.set(AssetPlugin {
+            watch_for_changes: true,
+            ..default()
+        }))
         .add_plugins(level::LevelPluginBundle)
         .add_startup_system(setup)
         .add_startup_system(CommonAssets::load_resource)
