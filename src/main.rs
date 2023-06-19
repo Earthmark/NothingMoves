@@ -4,6 +4,7 @@ mod assets;
 mod level;
 mod maze;
 mod menu;
+mod ui;
 
 use bevy::prelude::*;
 
@@ -46,8 +47,8 @@ fn setup(mut c: Commands, mut maze_spawner: EventWriter<level::LoadLevel>) {
         ..Default::default()
     });
 
-    maze_spawner.send(level::LoadLevel {
-        dimensions: level::DimensionLength::Three([4, 15, 2]),
-        ..Default::default()
-    });
+    //maze_spawner.send(level::LoadLevel {
+    //    dimensions: level::DimensionLength::Three([4, 15, 2]),
+    //    ..Default::default()
+    //});
 }

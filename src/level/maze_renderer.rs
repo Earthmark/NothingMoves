@@ -106,12 +106,12 @@ fn update_maze_offset(
     mut axis_changed: EventReader<super::AxisChanged>,
 ) {
     let mut update_pos = || {
-        for (e, renderer, trs) in maze_query.iter_mut() {
+        for (e, renderer, trs) in &mut maze_query {
             if let Some(mut c) = c.get_entity(e) {
                 c.insert(ShiftForN {
                     duration: Duration::from_millis(100),
                     start: *trs,
-                    end: (*trs)
+                    end: trs
                         .with_translation(maze_level_offset(level.as_ref(), renderer.visible_axis)),
                     ..ShiftForN::new(time.elapsed())
                 });
@@ -260,7 +260,7 @@ fn start_despawn_of_render(
     mut axis_changed: EventReader<super::AxisChanged>,
 ) {
     for axis in axis_changed.iter() {
-        for e in render_query.iter() {
+        for e in &render_query {
             if let Some(mut c) = c.get_entity(e) {
                 c.insert((
                     ShiftForN {
@@ -288,7 +288,7 @@ fn remove_after_time<Comp: TimedComponent + Component>(
     time: Res<Time>,
     query: Query<(Entity, &Comp)>,
 ) {
-    for (e, r) in query.iter() {
+    for (e, r) in &query {
         if time.elapsed() > r.end_time() {
             r.on_elapsed(&mut c, e);
         }
@@ -335,7 +335,7 @@ impl TimedComponent for ShiftForN {
 }
 
 fn rotate_for_n_update(time: Res<Time>, mut rotator: Query<(&ShiftForN, &mut Transform)>) {
-    for (shift, mut trs) in rotator.iter_mut() {
+    for (shift, mut trs) in &mut rotator {
         let lerp_val =
             (time.elapsed() - shift.start_time).as_secs_f32() / shift.duration.as_secs_f32();
         let lerp_val = lerp_val.clamp(0.0, 1.0);

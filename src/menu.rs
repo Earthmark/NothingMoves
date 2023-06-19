@@ -1,4 +1,4 @@
-use crate::AppState;
+use crate::{assets::CommonAssets, AppState};
 use bevy::prelude::*;
 
 struct MainMenuPlugin;
@@ -9,4 +9,15 @@ impl Plugin for MainMenuPlugin {
     }
 }
 
-fn setup_main_menu(mut _c: Commands) {}
+#[derive(Component)]
+struct MainMenuMarker;
+
+fn setup_main_menu(mut c: Commands, assets: Res<CommonAssets>) {
+    c.spawn((
+        MainMenuMarker,
+        TextBundle {
+            text: Text::from_section("Nothing Moves", assets.common_text_style()),
+            ..default()
+        },
+    ));
+}
