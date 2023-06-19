@@ -26,12 +26,14 @@ fn main() {
             ..default()
         }))
         .add_plugins(level::LevelPluginBundle)
+        .add_plugin(ui::button::CommonButtonPlugin)
+        .add_plugin(menu::MainMenuPlugin)
         .add_startup_system(setup)
         .add_startup_system(CommonAssets::load_resource)
         .run();
 }
 
-fn setup(mut c: Commands, mut maze_spawner: EventWriter<level::LoadLevel>) {
+fn setup(mut c: Commands, mut _maze_spawner: EventWriter<level::LoadLevel>) {
     c.spawn(Camera3dBundle {
         transform: Transform::from_xyz(-6.0, 10.0, -4.0)
             .looking_at(Vec3::new(2.0, 0.0, 2.0), Vec3::Y),
