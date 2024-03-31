@@ -8,11 +8,12 @@ pub struct MazeLoaderPlugin;
 
 impl Plugin for MazeLoaderPlugin {
     fn build(&self, app: &mut App) {
-        app.add_system(level_load_system).add_event::<LoadLevel>();
+        app.add_systems(Update, level_load_system)
+            .add_event::<LoadLevel>();
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Event)]
 pub struct LoadLevel {
     pub rng_source: RngSource,
     pub dimensions: DimensionLength,
@@ -48,7 +49,7 @@ fn level_load_system(
     mut events: EventReader<LoadLevel>,
     mut app_state: ResMut<NextState<AppState>>,
 ) {
-    for level_loader in events.iter() {
+    for level_loader in events.read() {
         let mut rng = match level_loader.rng_source {
             RngSource::Seeded(seed) => StdRng::seed_from_u64(seed),
         };

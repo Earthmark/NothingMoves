@@ -6,11 +6,14 @@ pub struct CommonButtonPlugin;
 
 impl Plugin for CommonButtonPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems((
-            active_button_color_updates,
-            button_made_inactive_color_update,
-            button_made_active_color_update,
-        ));
+        app.add_systems(
+            Update,
+            (
+                active_button_color_updates,
+                button_made_inactive_color_update,
+                button_made_active_color_update,
+            ),
+        );
     }
 }
 
@@ -61,7 +64,7 @@ struct ColorPallete {
 impl ColorPallete {
     fn color_for(&self, i: &Interaction) -> Color {
         match i {
-            Interaction::Clicked => self.clicked,
+            Interaction::Pressed => self.clicked,
             Interaction::Hovered => self.hovered,
             Interaction::None => self.normal,
         }
@@ -83,11 +86,12 @@ fn button_made_inactive_color_update(
     mut removed_buttons: RemovedComponents<Button>,
     mut interaction_query: Query<(&mut BackgroundColor, &ButtonKind)>,
 ) {
-    let mut iter = interaction_query.iter_many_mut(removed_buttons.iter());
-    while let Some((mut background, kind)) = iter.fetch_next() {
-        *background = kind.inactive_color().into();
+    for e in removed_buttons.read() {
+        if let Ok((mut background, kind)) = interaction_query.get_mut(e) {
+            *background = kind.inactive_color().into();
+        }
     }
-}
+ }
 
 fn button_made_active_color_update(
     mut interaction_query: Query<(&Interaction, &mut BackgroundColor, &ButtonKind), Added<Button>>,

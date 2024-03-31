@@ -5,24 +5,51 @@ pub struct MainMenuPlugin;
 
 impl Plugin for MainMenuPlugin {
     fn build(&self, app: &mut App) {
-        app.add_system(setup_main_menu.in_schedule(OnEnter(AppState::MainMenu)));
+        app.init_state::<MenuScene>()
+            .add_systems(OnEnter(AppState::MainMenu), (reset_state, setup_main_menu));
     }
 }
 
+fn reset_state(mut setter: ResMut<NextState<MenuScene>>) {
+    setter.set(MenuScene::Main);
+}
+
+// Main menu flows:
+//
+// Start - Pick level kind
+//  | - Getting Started
+//  | - New Maze (pick dimensions)
+//  | | - Pick dimension count, lengths, and seed.
+//  | - Load Seed
+//    | - Load seed string
+// Exit - Close (if not web)
+
+#[derive(States, Default, Debug, Hash, Eq, PartialEq, Clone, Copy)]
+enum MenuScene {
+    #[default]
+    Main,
+    Start,
+    NewMaze,
+    LoadSeed,
+}
+
 #[derive(Component)]
-struct MainMenuMarker;
+struct GlobalMenuMarker;
+
+#[derive(Component)]
+struct MenuRootMarker(MenuScene);
+
+fn remove_scene(mut c: Commands, q: Query<&MenuRootMarker>) {}
 
 fn setup_main_menu(mut c: Commands, assets: Res<CommonAssets>) {
     c.spawn((
-        MainMenuMarker,
+        MenuRootMarker(MenuScene::Main),
         NodeBundle {
             style: Style {
                 justify_content: JustifyContent::Center,
-                size: Size::width(Val::Percent(100.)),
                 align_content: AlignContent::Center,
                 align_items: AlignItems::Center,
                 flex_direction: FlexDirection::Column,
-                gap: Size::all(Val::Px(5.0)),
                 ..default()
             },
             ..default()
@@ -34,14 +61,18 @@ fn setup_main_menu(mut c: Commands, assets: Res<CommonAssets>) {
                 margin: UiRect::vertical(Val::Px(30.)),
                 ..default()
             },
-            text: Text::from_section("Nothing Moves", assets.common_text_style()),
+            text: Text::from_section(
+                "Nothing Moves",
+                TextStyle {
+                    font_size: 150.,
+                    ..assets.common_text_style()
+                },
+            ),
             ..default()
         });
         assets.spawn_common(
             &mut c.spawn(NodeBundle {
-                style: Style {
-                    ..default()
-                },
+                style: Style { ..default() },
                 ..default()
             }),
             crate::ui::button::SpawnableButton::primary("Start"),

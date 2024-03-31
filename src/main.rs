@@ -6,7 +6,9 @@ mod maze;
 mod menu;
 mod ui;
 
+use bevy::input::common_conditions::input_toggle_active;
 use bevy::prelude::*;
+use bevy_inspector_egui::quick::WorldInspectorPlugin;
 
 use assets::CommonAssets;
 
@@ -20,16 +22,16 @@ pub enum AppState {
 
 fn main() {
     App::new()
-        .add_state::<AppState>()
-        .add_plugins(DefaultPlugins.set(AssetPlugin {
-            watch_for_changes: true,
-            ..default()
-        }))
+        .init_state::<AppState>()
+        .add_plugins(DefaultPlugins.set(AssetPlugin { ..default() }))
         .add_plugins(level::LevelPluginBundle)
-        .add_plugin(ui::button::CommonButtonPlugin)
-        .add_plugin(menu::MainMenuPlugin)
-        .add_startup_system(setup)
-        .add_startup_system(CommonAssets::load_resource)
+        .add_plugins(ui::button::CommonButtonPlugin)
+        .add_plugins(menu::MainMenuPlugin)
+        .add_plugins(
+            WorldInspectorPlugin::default().run_if(input_toggle_active(true, KeyCode::Escape)),
+        )
+        .add_systems(Startup, setup)
+        .add_systems(Startup, CommonAssets::load_resource)
         .run();
 }
 

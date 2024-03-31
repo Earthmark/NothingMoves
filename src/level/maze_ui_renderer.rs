@@ -10,18 +10,20 @@ pub struct MazeUiRendererPlugin;
 impl Plugin for MazeUiRendererPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(
-            (spawn_ui, create_rotation_binder).in_schedule(OnEnter(crate::AppState::InMaze)),
+            OnEnter(crate::AppState::InMaze),
+            (spawn_ui, create_rotation_binder),
         )
         .add_systems(
+            Update,
             (
                 maze_axis_label_update_listener,
                 maze_position_label_update_listener,
                 maze_axis_label_background_updater,
                 update_guide_arrows,
             )
-                .in_set(OnUpdate(crate::AppState::InMaze)),
+                .run_if(in_state(crate::AppState::InMaze)),
         )
-        .add_startup_system(MazeUiResources::load_resource);
+        .add_systems(Startup, MazeUiResources::load_resource);
     }
 }
 
@@ -75,7 +77,7 @@ fn update_guide_arrows(
     mut axis_changed: EventReader<super::AxisChanged>,
     mut query: Query<(&DimensionArrowUpdater, &mut UiImage)>,
 ) {
-    for _ in axis_changed.iter() {
+    for _ in axis_changed.read() {
         for (dim, mut img) in query.iter_mut() {
             *img = match (dim.enabled, dim.flipped) {
                 (true, true) => &ui_assets.rotate_arrow_flip,
@@ -121,13 +123,6 @@ fn create_rotation_binder(
             flex_direction: FlexDirection::Column,
             margin: UiRect::all(Val::Px(10.0)),
             align_items: AlignItems::Center,
-            size: Size::new(Val::Percent(20.0), Val::Percent(30.0)),
-            position: UiRect {
-                left: Val::Px(0.0),
-                right: Val::Undefined,
-                top: Val::Undefined,
-                bottom: Val::Px(0.0),
-            },
             ..default()
         },
         ..default()
@@ -146,7 +141,6 @@ fn create_rotation_binder(
                 text: Text::from_section("Q", common_assets.common_text_style()),
                 style: Style {
                     position_type: PositionType::Absolute,
-                    position: UiRect::bottom(Val::Percent(5.0)),
                     ..default()
                 },
                 ..default()
@@ -166,7 +160,6 @@ fn create_rotation_binder(
         c.spawn(NodeBundle {
             style: Style {
                 align_items: AlignItems::Center,
-                size: Size::new(Val::Percent(100.0), Val::Percent(40.0)),
                 ..default()
             },
             ..default()
@@ -204,7 +197,6 @@ fn create_rotation_binder(
                 text: Text::from_section("E", common_assets.common_text_style()),
                 style: Style {
                     position_type: PositionType::Absolute,
-                    position: UiRect::top(Val::Percent(5.0)),
                     ..default()
                 },
                 ..default()
@@ -232,12 +224,7 @@ fn spawn_ui(mut c: Commands, maze: Res<MazeLevel>, common_assets: Res<CommonAsse
                 color: c,
                 ..common_assets.common_text_style()
             },
-        )
-        .with_alignment(TextAlignment::Center),
-        style: Style {
-            size: Size::new(Val::Auto, Val::Px(50.0)),
-            ..default()
-        },
+        ),
         ..default()
     };
 
@@ -341,10 +328,10 @@ fn maze_axis_label_background_updater(
             };
         }
     };
-    for _ in position_changed.iter() {
+    for _ in position_changed.read() {
         update_bg();
     }
-    for _ in axis_changed.iter() {
+    for _ in axis_changed.read() {
         update_bg();
     }
 }
@@ -353,7 +340,7 @@ fn maze_axis_label_update_listener(
     mut query: Query<(&MazeAxisLabel, &mut Text)>,
     mut axis_changed: EventReader<super::AxisChanged>,
 ) {
-    for changed in axis_changed.iter() {
+    for changed in axis_changed.read() {
         for (label, mut text) in query.iter_mut() {
             if changed.axis[0] == label.dim {
                 text.sections[0].value = match label.dir {
@@ -382,7 +369,7 @@ fn maze_position_label_update_listener(
     mut query: Query<(&MazePositionLabel, &mut Text)>,
     mut position_changed: EventReader<super::PositionChanged>,
 ) {
-    for _ in position_changed.iter() {
+    for _ in position_changed.read() {
         for (label, mut text) in query.iter_mut() {
             if let Some(section) = text.sections.first_mut() {
                 if let Some(target) = maze.dims().get(label.dimension) {

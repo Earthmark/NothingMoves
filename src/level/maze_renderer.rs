@@ -8,9 +8,10 @@ pub struct MazeRendererPlugin;
 
 impl Plugin for MazeRendererPlugin {
     fn build(&self, app: &mut App) {
-        app.add_startup_system(load_maze_assets)
-            .add_system(spawn_player.in_schedule(OnEnter(crate::AppState::InMaze)))
+        app.add_systems(Startup, load_maze_assets)
+            .add_systems(OnEnter(crate::AppState::InMaze), spawn_player)
             .add_systems(
+                Update,
                 (
                     maze_level_renderer,
                     rotate_for_n_update,
@@ -19,7 +20,7 @@ impl Plugin for MazeRendererPlugin {
                     update_maze_offset.after(maze_level_renderer),
                     start_despawn_of_render,
                 )
-                    .in_set(OnUpdate(crate::AppState::InMaze)),
+                    .run_if(in_state(crate::AppState::InMaze)),
             );
     }
 }
@@ -30,9 +31,9 @@ fn load_maze_assets(
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     c.insert_resource(MazeAssets {
-        joint: meshes.add(Mesh::from(shape::Box::new(0.2, 1.0, 0.2))),
-        wall: meshes.add(Mesh::from(shape::Box::new(0.1, 0.6, 1.0))),
-        material: materials.add(Color::rgb(0.8, 0.7, 0.6).into()),
+        joint: meshes.add(Mesh::from(Cuboid::new(0.2, 1.0, 0.2))),
+        wall: meshes.add(Mesh::from(Cuboid::new(0.1, 0.6, 1.0))),
+        material: materials.add(Color::rgb(0.8, 0.7, 0.6)),
     });
 }
 
@@ -69,11 +70,11 @@ fn spawn_player(
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     c.spawn(PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Capsule {
+        mesh: meshes.add(Mesh::from(Capsule3d {
             radius: 0.3,
             ..default()
         })),
-        material: materials.add(Color::rgb(0.5, 0.5, 0.8).into()),
+        material: materials.add(StandardMaterial::from(Color::rgb(0.5, 0.5, 0.8))),
         ..Default::default()
     });
 }
@@ -83,7 +84,7 @@ pub struct MazePositionTrackerBundle {
     pub position_tracker: MazePositionTracker,
     pub transform: Transform,
     pub global_transform: GlobalTransform,
-    pub computed_visibility: ComputedVisibility,
+    pub computed_visibility: InheritedVisibility,
     pub visibility: Visibility,
 }
 
@@ -118,10 +119,10 @@ fn update_maze_offset(
             }
         }
     };
-    for _ in position_changed.iter() {
+    for _ in position_changed.read() {
         update_pos();
     }
-    for _ in axis_changed.iter() {
+    for _ in axis_changed.read() {
         update_pos();
     }
 }
@@ -131,7 +132,7 @@ struct MazeRotationTrackerBundle {
     pub position_tracker: MazeRotationTracker,
     pub transform: Transform,
     pub global_transform: GlobalTransform,
-    pub computed_visibility: ComputedVisibility,
+    pub computed_visibility: InheritedVisibility,
     pub visibility: Visibility,
 }
 
@@ -165,7 +166,7 @@ fn maze_level_renderer(
     mut c: Commands,
     mut axis_changed: EventReader<super::AxisChanged>,
 ) {
-    for axis in axis_changed.iter() {
+    for axis in axis_changed.read() {
         let start = get_rot_from_axis(axis).inverse();
         c.spawn((
             MazeRotationTrackerBundle {
@@ -259,7 +260,7 @@ fn start_despawn_of_render(
     render_query: Query<Entity, (With<MazeRotationTracker>, Without<RemoveAt>)>,
     mut axis_changed: EventReader<super::AxisChanged>,
 ) {
-    for axis in axis_changed.iter() {
+    for axis in axis_changed.read() {
         for e in &render_query {
             if let Some(mut c) = c.get_entity(e) {
                 c.insert((
