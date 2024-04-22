@@ -1,10 +1,9 @@
-#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
-
 mod assets;
 mod level;
 mod maze;
 mod menu;
 mod ui;
+mod util;
 
 use bevy::input::common_conditions::input_toggle_active;
 use bevy::prelude::*;
@@ -15,24 +14,29 @@ use assets::CommonAssets;
 #[derive(Debug, Clone, Eq, PartialEq, Hash, States, Default)]
 pub enum AppState {
     #[default]
+    Splash,
     MainMenu,
     InMaze,
-    Paused,
 }
 
 fn main() {
     App::new()
         .init_state::<AppState>()
-        .add_plugins(DefaultPlugins.set(AssetPlugin { ..default() }))
+        .add_plugins(DefaultPlugins)
         .add_plugins(level::LevelPluginBundle)
-        .add_plugins(ui::button::CommonButtonPlugin)
-        .add_plugins(menu::MainMenuPlugin)
+        .add_plugins(ui::plugin)
+        .add_plugins(menu::main_menu_plugin)
         .add_plugins(
             WorldInspectorPlugin::default().run_if(input_toggle_active(true, KeyCode::Escape)),
         )
         .add_systems(Startup, setup)
         .add_systems(Startup, CommonAssets::load_resource)
+        .add_systems(Startup, loading_done)
         .run();
+}
+
+fn loading_done(mut main_state: ResMut<NextState<AppState>>) {
+    main_state.set(AppState::MainMenu);
 }
 
 fn setup(mut c: Commands, mut _maze_spawner: EventWriter<level::LoadLevel>) {

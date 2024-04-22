@@ -2,19 +2,15 @@ use bevy::prelude::*;
 
 use crate::assets::{CommonAssets, CommonSpawnable};
 
-pub struct CommonButtonPlugin;
-
-impl Plugin for CommonButtonPlugin {
-    fn build(&self, app: &mut App) {
-        app.add_systems(
-            Update,
-            (
-                active_button_color_updates,
-                button_made_inactive_color_update,
-                button_made_active_color_update,
-            ),
-        );
-    }
+pub fn plugin(app: &mut App) {
+    app.add_systems(
+        Update,
+        (
+            active_button_color_updates,
+            button_made_inactive_color_update,
+            button_made_active_color_update,
+        ),
+    );
 }
 
 #[derive(Component)]
@@ -91,7 +87,7 @@ fn button_made_inactive_color_update(
             *background = kind.inactive_color().into();
         }
     }
- }
+}
 
 fn button_made_active_color_update(
     mut interaction_query: Query<(&Interaction, &mut BackgroundColor, &ButtonKind), Added<Button>>,
@@ -123,11 +119,12 @@ impl SpawnableButton {
 }
 
 impl CommonSpawnable for SpawnableButton {
-    fn spawn_under(self, assets: &CommonAssets, c: &mut ChildBuilder) {
+    fn spawn_under(self, assets: &CommonAssets, c: &mut ChildBuilder, bundle: impl Bundle) {
         c.spawn((
             ButtonBundle {
                 style: Style {
                     align_items: AlignItems::Center,
+                    align_self: AlignSelf::Center,
                     justify_content: JustifyContent::Center,
                     padding: UiRect::new(Val::Px(16.0), Val::Px(16.0), Val::Px(8.0), Val::Px(8.0)),
                     margin: UiRect::all(Val::Px(12.0)),
@@ -137,6 +134,7 @@ impl CommonSpawnable for SpawnableButton {
                 ..default()
             },
             self.kind,
+            bundle,
         ))
         .with_children(|c| {
             c.spawn(TextBundle {

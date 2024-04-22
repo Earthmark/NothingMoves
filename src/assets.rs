@@ -1,4 +1,4 @@
-use bevy::{ecs::system::EntityCommands, prelude::*};
+use bevy::prelude::*;
 
 #[derive(Resource)]
 pub struct CommonAssets {
@@ -6,7 +6,7 @@ pub struct CommonAssets {
 }
 
 pub trait CommonSpawnable {
-    fn spawn_under(self, assets: &CommonAssets, c: &mut ChildBuilder);
+    fn spawn_under(self, assets: &CommonAssets, c: &mut ChildBuilder, bundle: impl Bundle);
 }
 
 impl CommonAssets {
@@ -20,10 +20,13 @@ impl CommonAssets {
         }
     }
 
-    pub fn spawn_common<Common: CommonSpawnable>(&self, c: &mut EntityCommands, common: Common) {
-        c.with_children(|c| {
-            common.spawn_under(self, c);
-        });
+    pub fn spawn_common(
+        &self,
+        c: &mut ChildBuilder,
+        common: impl CommonSpawnable,
+        bundle: impl Bundle,
+    ) {
+        common.spawn_under(self, c, bundle);
     }
 
     pub fn common_text_style(&self) -> TextStyle {

@@ -7,4 +7,4 @@ mod maze_ui_renderer;
 
 pub use bundle::LevelPluginBundle;
 pub use input::{AxisChanged, PositionChanged};
-pub use loader::{DimensionLength, LoadLevel, RngSource};
+pub use loader::LoadLevel;

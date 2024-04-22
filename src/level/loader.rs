@@ -44,6 +44,23 @@ impl Default for LoadLevel {
     }
 }
 
+impl LoadLevel {
+    pub fn new(d: &[u8]) -> Self {
+        let dimensions = match d.len() {
+            2 => DimensionLength::Two([d[0], d[1]]),
+            3 => DimensionLength::Three([d[0], d[1], d[2]]),
+            4 => DimensionLength::Four([d[0], d[1], d[2], d[3]]),
+            5 => DimensionLength::Five([d[0], d[1], d[2], d[3], d[4]]),
+            6 => DimensionLength::Six([d[0], d[1], d[2], d[3], d[4], d[5]]),
+            _ => panic!("Unexpected dimension length, it must be 2-6."),
+        };
+        Self {
+            dimensions,
+            ..default()
+        }
+    }
+}
+
 fn level_load_system(
     mut c: Commands,
     mut events: EventReader<LoadLevel>,
