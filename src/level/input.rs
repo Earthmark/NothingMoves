@@ -34,11 +34,11 @@ fn initial_events_on_load(
     mut position_changed: EventWriter<PositionChanged>,
     mut axis_changed: EventWriter<AxisChanged>,
 ) {
-    position_changed.send(PositionChanged {
+    position_changed.write(PositionChanged {
         position: maze.pos(),
         previous_position: maze.pos(),
     });
-    axis_changed.send(AxisChanged {
+    axis_changed.write(AxisChanged {
         axis: maze.axis(),
         previous_axis: maze.axis(),
     });
@@ -56,7 +56,7 @@ fn level_navigation(
             level.shift_axis(axis, dir);
             let axis = level.axis();
             if previous_axis != axis {
-                axis_event.send(AxisChanged {
+                axis_event.write(AxisChanged {
                     axis,
                     previous_axis,
                 });
@@ -73,7 +73,7 @@ fn level_navigation(
             level.move_pos(axis, dir);
             let position = level.pos();
             if previous_position != position {
-                position_event.send(PositionChanged {
+                position_event.write(PositionChanged {
                     position,
                     previous_position,
                 });

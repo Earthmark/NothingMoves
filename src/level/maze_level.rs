@@ -200,7 +200,7 @@ pub struct MazeLevel {
 impl Default for MazeLevel {
     fn default() -> Self {
         Self {
-            inner: Box::<MazeImpl::<2>>::default(),
+            inner: Box::<MazeImpl<2>>::default(),
         }
     }
 }

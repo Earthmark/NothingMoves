@@ -7,6 +7,7 @@ mod util;
 
 use bevy::input::common_conditions::input_toggle_active;
 use bevy::prelude::*;
+use bevy_inspector_egui::bevy_egui::EguiPlugin;
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
 
 use assets::CommonAssets;
@@ -21,11 +22,14 @@ pub enum AppState {
 
 fn main() {
     App::new()
-        .init_state::<AppState>()
         .add_plugins(DefaultPlugins)
+        .init_state::<AppState>()
         .add_plugins(level::LevelPluginBundle)
         .add_plugins(ui::plugin)
         .add_plugins(menu::main_menu_plugin)
+        .add_plugins(EguiPlugin {
+            enable_multipass_for_primary_context: true,
+        })
         .add_plugins(
             WorldInspectorPlugin::default().run_if(input_toggle_active(true, KeyCode::Escape)),
         )
@@ -40,20 +44,18 @@ fn loading_done(mut main_state: ResMut<NextState<AppState>>) {
 }
 
 fn setup(mut c: Commands, mut _maze_spawner: EventWriter<level::LoadLevel>) {
-    c.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(-6.0, 10.0, -4.0)
-            .looking_at(Vec3::new(2.0, 0.0, 2.0), Vec3::Y),
-        ..Default::default()
-    });
-    c.spawn(PointLightBundle {
-        point_light: PointLight {
+    c.spawn((
+        Camera3d::default(),
+        Transform::from_xyz(-6.0, 10.0, -4.0).looking_at(Vec3::new(2.0, 0.0, 2.0), Vec3::Y),
+    ));
+    c.spawn((
+        PointLight {
             intensity: 1500.0,
             shadows_enabled: true,
             ..Default::default()
         },
-        transform: Transform::from_xyz(4.0, 8.0, 4.0),
-        ..Default::default()
-    });
+        Transform::from_xyz(4.0, 8.0, 4.0),
+    ));
 
     //maze_spawner.send(level::LoadLevel {
     //    dimensions: level::DimensionLength::Three([4, 15, 2]),

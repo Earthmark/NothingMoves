@@ -6,7 +6,7 @@ pub struct CommonAssets {
 }
 
 pub trait CommonSpawnable {
-    fn spawn_under(self, assets: &CommonAssets, c: &mut ChildBuilder, bundle: impl Bundle);
+    fn spawn_under(self, assets: &CommonAssets, c: &mut ChildSpawnerCommands, bundle: impl Bundle);
 }
 
 impl CommonAssets {
@@ -22,15 +22,15 @@ impl CommonAssets {
 
     pub fn spawn_common(
         &self,
-        c: &mut ChildBuilder,
+        c: &mut ChildSpawnerCommands,
         common: impl CommonSpawnable,
         bundle: impl Bundle,
     ) {
         common.spawn_under(self, c, bundle);
     }
 
-    pub fn common_text_style(&self) -> TextStyle {
-        TextStyle {
+    pub fn common_text_style(&self) -> TextFont {
+        TextFont {
             font: self.common_font.clone(),
             font_size: 50.0,
             ..default()

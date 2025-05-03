@@ -6,8 +6,7 @@ where
 {
     app.add_systems(
         Update,
-        update_visibility::<States>
-            .run_if(state_exists::<States>.and_then(state_changed::<States>)),
+        update_visibility::<States>.run_if(state_exists::<States>.and(state_changed::<States>)),
     );
 }
 

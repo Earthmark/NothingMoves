@@ -31,9 +31,12 @@ fn load_maze_assets(
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     c.insert_resource(MazeAssets {
-        joint: meshes.add(Mesh::from(Cuboid::new(0.2, 1.0, 0.2))),
-        wall: meshes.add(Mesh::from(Cuboid::new(0.1, 0.6, 1.0))),
-        material: materials.add(Color::rgb(0.8, 0.7, 0.6)),
+        joint: meshes.add(Cuboid::new(0.2, 1.0, 0.2)),
+        wall: meshes.add(Cuboid::new(0.1, 0.6, 1.0)),
+        material: materials.add(StandardMaterial {
+            base_color: Color::srgb(0.8, 0.7, 0.6),
+            ..default()
+        }),
     });
 }
 
@@ -45,22 +48,18 @@ struct MazeAssets {
 }
 
 impl MazeAssets {
-    pub fn wall(&self, transform: Transform) -> PbrBundle {
-        PbrBundle {
-            mesh: self.wall.clone(),
-            material: self.material.clone(),
-            transform,
-            ..Default::default()
-        }
+    pub fn wall(&self) -> (Mesh3d, MeshMaterial3d<StandardMaterial>) {
+        (
+            Mesh3d(self.wall.clone()),
+            MeshMaterial3d(self.material.clone()),
+        )
     }
 
-    pub fn joint(&self, transform: Transform) -> PbrBundle {
-        PbrBundle {
-            mesh: self.joint.clone(),
-            material: self.material.clone(),
-            transform,
-            ..Default::default()
-        }
+    pub fn joint(&self) -> (Mesh3d, MeshMaterial3d<StandardMaterial>) {
+        (
+            Mesh3d(self.joint.clone()),
+            MeshMaterial3d(self.material.clone()),
+        )
     }
 }
 
@@ -69,14 +68,14 @@ fn spawn_player(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    c.spawn(PbrBundle {
-        mesh: meshes.add(Mesh::from(Capsule3d {
+    c.spawn((
+        Mesh3d(meshes.add(Mesh::from(Capsule3d {
             radius: 0.3,
             ..default()
-        })),
-        material: materials.add(StandardMaterial::from(Color::rgb(0.5, 0.5, 0.8))),
-        ..Default::default()
-    });
+        }))),
+        MeshMaterial3d(materials.add(StandardMaterial::from(Color::srgb(0.5, 0.5, 0.8)))),
+        Transform::default(),
+    ));
 }
 
 #[derive(Bundle, Default)]
@@ -108,7 +107,7 @@ fn update_maze_offset(
 ) {
     let mut update_pos = || {
         for (e, renderer, trs) in &mut maze_query {
-            if let Some(mut c) = c.get_entity(e) {
+            if let Ok(mut c) = c.get_entity(e) {
                 c.insert(ShiftForN {
                     duration: Duration::from_millis(100),
                     start: *trs,
@@ -196,42 +195,37 @@ fn maze_level_renderer(
                 let [px, py] = level.pos_limit();
                 let lx = px as f32;
                 let ly = py as f32;
-                c.spawn(
-                    assets.wall(
-                        Transform::from_xyz((lx / 2.0) - 0.5, 0.0, -0.5)
-                            .with_scale(Vec3::new(1.0, 1.0, lx))
-                            .with_rotation(Quat::from_rotation_y(PI / 2.0)),
-                    ),
-                );
-                c.spawn(
-                    assets.wall(
-                        Transform::from_xyz((lx / 2.0) - 0.5, 0.0, ly - 0.5)
-                            .with_scale(Vec3::new(1.0, 1.0, lx))
-                            .with_rotation(Quat::from_rotation_y(PI / 2.0)),
-                    ),
-                );
-                c.spawn(
-                    assets.wall(
-                        Transform::from_xyz(-0.5, 0.0, (ly / 2.0) - 0.5)
-                            .with_scale(Vec3::new(1.0, 1.0, ly)),
-                    ),
-                );
-                c.spawn(
-                    assets.wall(
-                        Transform::from_xyz(lx - 0.5, 0.0, (ly / 2.0) - 0.5)
-                            .with_scale(Vec3::new(1.0, 1.0, ly)),
-                    ),
-                );
+                c.spawn((
+                    assets.wall(),
+                    Transform::from_xyz((lx / 2.0) - 0.5, 0.0, -0.5)
+                        .with_scale(Vec3::new(1.0, 1.0, lx))
+                        .with_rotation(Quat::from_rotation_y(PI / 2.0)),
+                ));
+                c.spawn((
+                    assets.wall(),
+                    Transform::from_xyz((lx / 2.0) - 0.5, 0.0, ly - 0.5)
+                        .with_scale(Vec3::new(1.0, 1.0, lx))
+                        .with_rotation(Quat::from_rotation_y(PI / 2.0)),
+                ));
+                c.spawn((
+                    assets.wall(),
+                    Transform::from_xyz(-0.5, 0.0, (ly / 2.0) - 0.5)
+                        .with_scale(Vec3::new(1.0, 1.0, ly)),
+                ));
+                c.spawn((
+                    assets.wall(),
+                    Transform::from_xyz(lx - 0.5, 0.0, (ly / 2.0) - 0.5)
+                        .with_scale(Vec3::new(1.0, 1.0, ly)),
+                ));
 
                 // joints
                 let [psx, psy] = level.pos_limit();
                 for x in 0..psx + 1 {
                     for y in 0..psy + 1 {
-                        c.spawn(assets.joint(Transform::from_xyz(
-                            x as f32 - 0.5,
-                            0.0,
-                            y as f32 - 0.5,
-                        )));
+                        c.spawn((
+                            assets.joint(),
+                            Transform::from_xyz(x as f32 - 0.5, 0.0, y as f32 - 0.5),
+                        ));
                     }
                 }
 
@@ -245,9 +239,10 @@ fn maze_level_renderer(
                         Quat::from_rotation_y(PI / 2.0)
                     };
                     let position = p1.lerp(p2, 0.5);
-                    c.spawn(
-                        assets.wall(Transform::from_translation(position).with_rotation(rotation)),
-                    );
+                    c.spawn((
+                        assets.wall(),
+                        Transform::from_translation(position).with_rotation(rotation),
+                    ));
                 }
             });
         });
@@ -262,7 +257,7 @@ fn start_despawn_of_render(
 ) {
     for axis in axis_changed.read() {
         for e in &render_query {
-            if let Some(mut c) = c.get_entity(e) {
+            if let Ok(mut c) = c.get_entity(e) {
                 c.insert((
                     ShiftForN {
                         end: Transform::from_rotation(get_rot_from_axis(axis)),
@@ -329,7 +324,7 @@ impl TimedComponent for ShiftForN {
     }
 
     fn on_elapsed(&self, c: &mut Commands, e: Entity) {
-        if let Some(mut c) = c.get_entity(e) {
+        if let Ok(mut c) = c.get_entity(e) {
             c.remove::<ShiftForN>();
         }
     }
@@ -355,8 +350,8 @@ impl TimedComponent for RemoveAt {
     }
 
     fn on_elapsed(&self, c: &mut Commands, e: Entity) {
-        if let Some(c) = c.get_entity(e) {
-            c.despawn_recursive();
+        if let Ok(mut c) = c.get_entity(e) {
+            c.despawn();
         }
     }
 }

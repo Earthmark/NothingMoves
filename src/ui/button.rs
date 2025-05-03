@@ -20,10 +20,10 @@ pub enum ButtonKind {
 }
 
 impl ButtonKind {
-    fn palette_for(&self) -> &ColorPallete {
+    fn palette_for(&self) -> &ColorPalette {
         match self {
-            Self::Normal => &NORMAL_PALLETE,
-            Self::Primary => &PRIMARY_PALLETE,
+            Self::Normal => &NORMAL_PALETTE,
+            Self::Primary => &PRIMARY_PALETTE,
         }
     }
 
@@ -36,28 +36,28 @@ impl ButtonKind {
     }
 }
 
-const NORMAL_PALLETE: ColorPallete = ColorPallete {
-    normal: Color::rgb(0.15, 0.15, 0.15),
-    hovered: Color::rgb(0.25, 0.25, 0.25),
-    clicked: Color::rgb(0.35, 0.75, 0.35),
-    inactive: Color::rgb(0.15, 0.15, 0.15),
+const NORMAL_PALETTE: ColorPalette = ColorPalette {
+    normal: Color::srgb(0.15, 0.15, 0.15),
+    hovered: Color::srgb(0.25, 0.25, 0.25),
+    clicked: Color::srgb(0.35, 0.75, 0.35),
+    inactive: Color::srgb(0.15, 0.15, 0.15),
 };
 
-const PRIMARY_PALLETE: ColorPallete = ColorPallete {
-    normal: Color::rgb(0.15, 0.15, 0.15),
-    hovered: Color::rgb(0.25, 0.25, 0.25),
-    clicked: Color::rgb(0.35, 0.75, 0.35),
-    inactive: Color::rgb(0.15, 0.15, 0.15),
+const PRIMARY_PALETTE: ColorPalette = ColorPalette {
+    normal: Color::srgb(0.15, 0.15, 0.15),
+    hovered: Color::srgb(0.25, 0.25, 0.25),
+    clicked: Color::srgb(0.35, 0.75, 0.35),
+    inactive: Color::srgb(0.15, 0.15, 0.15),
 };
 
-struct ColorPallete {
+struct ColorPalette {
     normal: Color,
     hovered: Color,
     clicked: Color,
     inactive: Color,
 }
 
-impl ColorPallete {
+impl ColorPalette {
     fn color_for(&self, i: &Interaction) -> Color {
         match i {
             Interaction::Pressed => self.clicked,
@@ -119,29 +119,22 @@ impl SpawnableButton {
 }
 
 impl CommonSpawnable for SpawnableButton {
-    fn spawn_under(self, assets: &CommonAssets, c: &mut ChildBuilder, bundle: impl Bundle) {
+    fn spawn_under(self, assets: &CommonAssets, c: &mut ChildSpawnerCommands, bundle: impl Bundle) {
         c.spawn((
-            ButtonBundle {
-                style: Style {
-                    align_items: AlignItems::Center,
-                    align_self: AlignSelf::Center,
-                    justify_content: JustifyContent::Center,
-                    padding: UiRect::new(Val::Px(16.0), Val::Px(16.0), Val::Px(8.0), Val::Px(8.0)),
-                    margin: UiRect::all(Val::Px(12.0)),
-                    ..default()
-                },
-                background_color: self.kind.color_for(&Interaction::None).into(),
+            Node {
+                align_items: AlignItems::Center,
+                align_self: AlignSelf::Center,
+                justify_content: JustifyContent::Center,
+                padding: UiRect::new(Val::Px(16.0), Val::Px(16.0), Val::Px(8.0), Val::Px(8.0)),
+                margin: UiRect::all(Val::Px(12.0)),
                 ..default()
             },
+            BackgroundColor(self.kind.color_for(&Interaction::None)),
             self.kind,
             bundle,
         ))
         .with_children(|c| {
-            c.spawn(TextBundle {
-                text: Text::from_section(self.text, assets.common_text_style()),
-                style: Style { ..default() },
-                ..default()
-            });
+            c.spawn((Text2d::new(self.text), assets.common_text_style()));
         });
     }
 }

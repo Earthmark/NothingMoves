@@ -58,14 +58,11 @@ enum MainMenuSelection {
 }
 
 #[derive(Component)]
-struct GlobalMenuMarker;
-
-#[derive(Component)]
 struct MainRootMarker;
 
 fn remove_all<T: Component>(mut c: Commands, q: Query<Entity, With<T>>) {
     for e in &q {
-        c.entity(e).despawn_recursive();
+        c.entity(e).despawn();
     }
 }
 
@@ -97,37 +94,31 @@ fn setup_main_menu(
 
     c.spawn((
         MainRootMarker,
-        NodeBundle {
-            style: Style {
-                justify_content: JustifyContent::Center,
-                align_content: AlignContent::Center,
-                align_items: AlignItems::Center,
-                flex_direction: FlexDirection::Column,
-                width: Val::Percent(100.),
-                height: Val::Percent(100.),
-                ..default()
-            },
+        Node {
+            justify_content: JustifyContent::Center,
+            align_content: AlignContent::Center,
+            align_items: AlignItems::Center,
+            flex_direction: FlexDirection::Column,
+            width: Val::Percent(100.),
+            height: Val::Percent(100.),
             ..default()
         },
     ))
     .with_children(|c| {
-        c.spawn(TextBundle {
-            style: Style {
+        c.spawn((
+            Node {
                 margin: UiRect::vertical(Val::Px(30.)),
                 ..default()
             },
-            text: Text::from_section(
-                "Nothing Moves",
-                TextStyle {
-                    font_size: 150.,
-                    ..assets.common_text_style()
-                },
-            ),
-            ..default()
-        });
+            Text2d::new("Nothing Moves"),
+            TextFont {
+                font_size: 150.,
+                ..assets.common_text_style()
+            },
+        ));
 
         c.spawn((
-            NodeBundle::default(),
+            Node::default(),
             VisibleIn::new(MainMenuSelection::Main),
         ))
         .with_children(|c| {
@@ -146,7 +137,7 @@ fn setup_main_menu(
         });
 
         c.spawn((
-            NodeBundle::default(),
+            Node::default(),
             VisibleIn::new(MainMenuSelection::New),
         ))
         .with_children(|c| {
@@ -217,7 +208,7 @@ fn dimension_length_visibility(
     dimension_count: Query<&NumBox, With<DimensionCountPicker>>,
     mut dimension_length: Query<(&DimensionLengthPicker, &mut Visibility)>,
 ) {
-    let active_dimension_count = dimension_count.single().get();
+    let active_dimension_count = dimension_count.single().unwrap().get();
     for (dims, mut visibility) in &mut dimension_length {
         *visibility = if dims.dimension_index < active_dimension_count {
             Visibility::Visible
@@ -263,7 +254,7 @@ fn exit_action(
 ) {
     for inter in &q {
         if let Interaction::Pressed = inter {
-            exit.send(AppExit);
+            exit.send(AppExit::Success);
         }
     }
 }
@@ -312,11 +303,11 @@ fn generate_action(
             let dimensions = dimensions
                 .iter()
                 .map(|(n, _)| n.get() as u8)
-                .take(dimension_count.single().get() as usize)
+                .take(dimension_count.single().unwrap().get() as usize)
                 .collect::<Vec<_>>();
 
             let load_level_event = LoadLevel::new(&dimensions);
-            loader.send(load_level_event);
+            loader.write(load_level_event);
         }
     }
 }

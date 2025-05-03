@@ -34,19 +34,16 @@ impl SpawnableNumBox {
 }
 
 impl CommonSpawnable for SpawnableNumBox {
-    fn spawn_under(self, assets: &CommonAssets, c: &mut ChildBuilder, bundle: impl Bundle) {
+    fn spawn_under(self, assets: &CommonAssets, c: &mut ChildSpawnerCommands, bundle: impl Bundle) {
         let mut label_target = Entity::PLACEHOLDER;
         c.spawn((
-            NodeBundle {
-                style: Style {
-                    flex_direction: FlexDirection::Column,
-                    align_items: AlignItems::Center,
-                    align_self: AlignSelf::Center,
-                    justify_content: JustifyContent::Center,
-                    padding: UiRect::new(Val::Px(16.0), Val::Px(16.0), Val::Px(8.0), Val::Px(8.0)),
-                    margin: UiRect::all(Val::Px(12.0)),
-                    ..default()
-                },
+            Node {
+                flex_direction: FlexDirection::Column,
+                align_items: AlignItems::Center,
+                align_self: AlignSelf::Center,
+                justify_content: JustifyContent::Center,
+                padding: UiRect::new(Val::Px(16.0), Val::Px(16.0), Val::Px(8.0), Val::Px(8.0)),
+                margin: UiRect::all(Val::Px(12.0)),
                 ..default()
             },
             bundle,
@@ -57,7 +54,6 @@ impl CommonSpawnable for SpawnableNumBox {
             },
             NumBoxTextVisualLink {
                 target: Entity::PLACEHOLDER,
-                section: 0,
             },
         ))
         .with_children(|c| {
@@ -65,7 +61,7 @@ impl CommonSpawnable for SpawnableNumBox {
                 assets,
                 c,
                 NumBoxShift {
-                    src: c.parent_entity(),
+                    src: c.target_entity(),
                     offset: 10,
                 },
             );
@@ -73,22 +69,21 @@ impl CommonSpawnable for SpawnableNumBox {
                 assets,
                 c,
                 NumBoxShift {
-                    src: c.parent_entity(),
+                    src: c.target_entity(),
                     offset: 1,
                 },
             );
-            let label = c.spawn(TextBundle {
-                text: Text::from_section(self.initial.to_string(), assets.common_text_style()),
-                style: Style { ..default() },
-                ..default()
-            });
+            let label = c.spawn((
+                Text2d::new(self.initial.to_string()),
+                assets.common_text_style(),
+            ));
             label_target = label.id();
 
             SpawnableButton::normal("-1").spawn_under(
                 assets,
                 c,
                 NumBoxShift {
-                    src: c.parent_entity(),
+                    src: c.target_entity(),
                     offset: -1,
                 },
             );
@@ -96,14 +91,13 @@ impl CommonSpawnable for SpawnableNumBox {
                 assets,
                 c,
                 NumBoxShift {
-                    src: c.parent_entity(),
+                    src: c.target_entity(),
                     offset: -10,
                 },
             );
         })
         .insert(NumBoxTextVisualLink {
             target: label_target,
-            section: 0,
         });
     }
 }
@@ -137,15 +131,6 @@ impl NumBox {
         self.max = val;
         self.set(self.current);
     }
-
-    pub fn get_min(&self) -> i32 {
-        self.min
-    }
-
-    pub fn set_min(&mut self, val: i32) {
-        self.min = val;
-        self.set(self.current);
-    }
 }
 
 #[derive(Component)]
@@ -170,7 +155,6 @@ fn num_box_apply_shift(
 #[derive(Component)]
 struct NumBoxTextVisualLink {
     target: Entity,
-    section: usize,
 }
 
 fn num_box_text_label_update(
@@ -179,7 +163,7 @@ fn num_box_text_label_update(
 ) {
     for (num, link) in &value_watcher {
         if let Ok(mut label) = label_updater.get_mut(link.target) {
-            label.sections[link.section].value = num.current.to_string();
+            label.0 = num.current.to_string();
         }
     }
 }

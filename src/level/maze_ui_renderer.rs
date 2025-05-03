@@ -75,11 +75,11 @@ struct DimensionArrowUpdater {
 fn update_guide_arrows(
     ui_assets: Res<MazeUiResources>,
     mut axis_changed: EventReader<super::AxisChanged>,
-    mut query: Query<(&DimensionArrowUpdater, &mut UiImage)>,
+    mut query: Query<(&DimensionArrowUpdater, &mut ImageNode)>,
 ) {
     for _ in axis_changed.read() {
         for (dim, mut img) in query.iter_mut() {
-            *img = match (dim.enabled, dim.flipped) {
+            img.image = match (dim.enabled, dim.flipped) {
                 (true, true) => &ui_assets.rotate_arrow_flip,
                 (true, false) => &ui_assets.rotate_arrow,
                 (false, true) => &ui_assets.rotate_arrow_flip_inactive,
@@ -117,39 +117,30 @@ fn create_rotation_binder(
     common_assets: Res<CommonAssets>,
     ui_assets: Res<MazeUiResources>,
 ) {
-    c.spawn(NodeBundle {
-        style: Style {
-            position_type: PositionType::Absolute,
-            flex_direction: FlexDirection::Column,
-            margin: UiRect::all(Val::Px(10.0)),
-            align_items: AlignItems::Center,
-            ..default()
-        },
+    c.spawn(Node {
+        position_type: PositionType::Absolute,
+        flex_direction: FlexDirection::Column,
+        margin: UiRect::all(Val::Px(10.0)),
+        align_items: AlignItems::Center,
         ..default()
     })
     .with_children(|c| {
-        c.spawn(NodeBundle {
-            style: Style {
-                flex_direction: FlexDirection::Column,
-                align_items: AlignItems::Center,
-                ..default()
-            },
+        c.spawn(Node {
+            flex_direction: FlexDirection::Column,
+            align_items: AlignItems::Center,
             ..default()
         })
         .with_children(|c| {
-            c.spawn(TextBundle {
-                text: Text::from_section("Q", common_assets.common_text_style()),
-                style: Style {
+            c.spawn((
+                Text2d::new("Q"),
+                common_assets.common_text_style(),
+                Node {
                     position_type: PositionType::Absolute,
                     ..default()
                 },
-                ..default()
-            });
+            ));
             c.spawn((
-                ImageBundle {
-                    image: ui_assets.rotate_arrow.clone().into(),
-                    ..default()
-                },
+                ImageNode::new(ui_assets.rotate_arrow.clone()),
                 DimensionArrowUpdater {
                     flipped: false,
                     enabled: true,
@@ -157,56 +148,38 @@ fn create_rotation_binder(
             ));
         });
 
-        c.spawn(NodeBundle {
-            style: Style {
-                align_items: AlignItems::Center,
-                ..default()
-            },
+        c.spawn(Node {
+            align_items: AlignItems::Center,
             ..default()
         })
         .with_children(|c| {
-            c.spawn(TextBundle {
-                text: Text::from_section("A", common_assets.common_text_style()),
-                ..default()
-            });
-            c.spawn(ImageBundle {
-                image: ui_assets.move_arrow.clone().into(),
-                ..default()
-            });
-            c.spawn(ImageBundle {
-                transform: Transform::from_rotation(Quat::from_rotation_z(PI)),
-                image: ui_assets.move_arrow_inactive.clone().into(),
-                ..default()
-            });
-            c.spawn(TextBundle {
-                text: Text::from_section("D", common_assets.common_text_style()),
-                ..default()
-            });
+            c.spawn((Text2d::new("A"), common_assets.common_text_style()));
+            c.spawn(ImageNode::new(ui_assets.move_arrow.clone()));
+            c.spawn((
+                ImageNode::new(ui_assets.move_arrow_inactive.clone()),
+                Transform::from_rotation(Quat::from_rotation_z(PI)),
+            ));
+            c.spawn((Text2d::new("D"), common_assets.common_text_style()));
         });
 
-        c.spawn(NodeBundle {
-            style: Style {
-                flex_direction: FlexDirection::ColumnReverse,
-                align_items: AlignItems::Center,
-                ..default()
-            },
+        c.spawn(Node {
+            flex_direction: FlexDirection::ColumnReverse,
+            align_items: AlignItems::Center,
             ..default()
         })
         .with_children(|c| {
-            c.spawn(TextBundle {
-                text: Text::from_section("E", common_assets.common_text_style()),
-                style: Style {
+            c.spawn((
+                Text2d::new("E"),
+                common_assets.common_text_style(),
+                Node {
                     position_type: PositionType::Absolute,
                     ..default()
                 },
-                ..default()
-            });
+            ));
             c.spawn((
-                ImageBundle {
-                    transform: Transform::from_rotation(Quat::from_rotation_z(PI)),
-                    image: ui_assets.rotate_arrow_flip_inactive.clone().into(),
-                    ..default()
-                },
+                Transform::from_rotation(Quat::from_rotation_z(PI)),
+                ImageNode::new(ui_assets.rotate_arrow_flip_inactive.clone()),
+                Node::default(),
                 DimensionArrowUpdater {
                     flipped: true,
                     enabled: true,
@@ -217,21 +190,18 @@ fn create_rotation_binder(
 }
 
 fn spawn_ui(mut c: Commands, maze: Res<MazeLevel>, common_assets: Res<CommonAssets>) {
-    let label = |s: &str, c: Color| TextBundle {
-        text: Text::from_section(
-            s,
-            TextStyle {
-                color: c,
-                ..common_assets.common_text_style()
-            },
-        ),
-        ..default()
+    let label = |s: &str, c: Color| {
+        (
+            Text2d::new(s),
+            common_assets.common_text_style(),
+            TextColor(c),
+        )
     };
 
     let dimension_col = |dimension: usize| {
-        move |c: &mut ChildBuilder| {
+        move |c: &mut ChildSpawnerCommands| {
             c.spawn((
-                NodeBundle::default(),
+                Node::default(),
                 MazeAxisLabel {
                     dim: dimension as u8,
                     dir: maze_level::Direction::Negative,
@@ -239,7 +209,7 @@ fn spawn_ui(mut c: Commands, maze: Res<MazeLevel>, common_assets: Res<CommonAsse
             ))
             .with_children(|c| {
                 c.spawn((
-                    label("-", Color::DARK_GRAY),
+                    label("-", bevy::color::palettes::css::DARK_GRAY.into()),
                     MazeAxisLabel {
                         dim: dimension as u8,
                         dir: maze_level::Direction::Negative,
@@ -249,7 +219,7 @@ fn spawn_ui(mut c: Commands, maze: Res<MazeLevel>, common_assets: Res<CommonAsse
             c.spawn((label("#", Color::WHITE), MazePositionLabel { dimension }));
 
             c.spawn((
-                NodeBundle::default(),
+                Node::default(),
                 MazeAxisLabel {
                     dim: dimension as u8,
                     dir: maze_level::Direction::Positive,
@@ -257,7 +227,7 @@ fn spawn_ui(mut c: Commands, maze: Res<MazeLevel>, common_assets: Res<CommonAsse
             ))
             .with_children(|c| {
                 c.spawn((
-                    label("-", Color::DARK_GRAY),
+                    label("-", bevy::color::palettes::css::DARK_GRAY.into()),
                     MazeAxisLabel {
                         dim: dimension as u8,
                         dir: maze_level::Direction::Positive,
@@ -267,35 +237,26 @@ fn spawn_ui(mut c: Commands, maze: Res<MazeLevel>, common_assets: Res<CommonAsse
         }
     };
 
-    c.spawn(NodeBundle {
-        style: Style {
-            flex_direction: FlexDirection::Column,
-            ..default()
-        },
+    c.spawn(Node {
+        flex_direction: FlexDirection::Column,
         ..default()
     })
     .with_children(|c| {
-        c.spawn(NodeBundle {
-            style: Style {
-                flex_direction: FlexDirection::Row,
-                align_items: AlignItems::Center,
-                justify_content: JustifyContent::FlexStart,
-                ..default()
-            },
+        c.spawn(Node {
+            flex_direction: FlexDirection::Row,
+            align_items: AlignItems::Center,
+            justify_content: JustifyContent::FlexStart,
             ..default()
         })
         .with_children(|c| {
             c.spawn(label("[", Color::WHITE));
             for (i, _) in maze.dims_limit().iter().enumerate() {
-                c.spawn(NodeBundle {
-                    style: Style {
-                        flex_direction: FlexDirection::Column,
-                        justify_content: JustifyContent::SpaceEvenly,
-                        margin: UiRect {
-                            left: Val::Px(3.0),
-                            right: Val::Px(3.0),
-                            ..default()
-                        },
+                c.spawn(Node {
+                    flex_direction: FlexDirection::Column,
+                    justify_content: JustifyContent::SpaceEvenly,
+                    margin: UiRect {
+                        left: Val::Px(3.0),
+                        right: Val::Px(3.0),
                         ..default()
                     },
                     ..default()
@@ -324,7 +285,7 @@ fn maze_axis_label_background_updater(
             ui_color.0 = if let Some(true) = level.can_move(axis.dim, axis.dir) {
                 Color::WHITE
             } else {
-                Color::GRAY
+                bevy::color::palettes::css::GRAY.into()
             };
         }
     };
@@ -337,24 +298,24 @@ fn maze_axis_label_background_updater(
 }
 
 fn maze_axis_label_update_listener(
-    mut query: Query<(&MazeAxisLabel, &mut Text)>,
+    mut query: Query<(&MazeAxisLabel, &mut Text2d)>,
     mut axis_changed: EventReader<super::AxisChanged>,
 ) {
     for changed in axis_changed.read() {
         for (label, mut text) in query.iter_mut() {
-            if changed.axis[0] == label.dim {
-                text.sections[0].value = match label.dir {
-                    maze_level::Direction::Positive => "W".into(),
-                    maze_level::Direction::Negative => "S".into(),
-                };
+            *text = Text2d::new(if changed.axis[0] == label.dim {
+                match label.dir {
+                    maze_level::Direction::Positive => "W",
+                    maze_level::Direction::Negative => "S",
+                }
             } else if changed.axis[1] == label.dim {
-                text.sections[0].value = match label.dir {
-                    maze_level::Direction::Positive => "D".into(),
-                    maze_level::Direction::Negative => "A".into(),
-                };
+                match label.dir {
+                    maze_level::Direction::Positive => "D",
+                    maze_level::Direction::Negative => "A",
+                }
             } else {
-                text.sections[0].value = "".into();
-            }
+                ""
+            });
         }
     }
 }
@@ -366,22 +327,20 @@ struct MazePositionLabel {
 
 fn maze_position_label_update_listener(
     maze: Res<MazeLevel>,
-    mut query: Query<(&MazePositionLabel, &mut Text)>,
+    mut query: Query<(&MazePositionLabel, &mut Text2d, &mut TextColor)>,
     mut position_changed: EventReader<super::PositionChanged>,
 ) {
     for _ in position_changed.read() {
-        for (label, mut text) in query.iter_mut() {
-            if let Some(section) = text.sections.first_mut() {
-                if let Some(target) = maze.dims().get(label.dimension) {
-                    let position = target + 1;
-                    section.value = format!("{}", position);
-                    section.style.color =
-                        if maze.dims_limit().get(label.dimension) == Some(&position) {
-                            Color::LIME_GREEN
-                        } else {
-                            Color::WHITE
-                        };
-                }
+        for (label, mut text, mut color) in query.iter_mut() {
+            if let Some(target) = maze.dims().get(label.dimension) {
+                let position = target + 1;
+                *text = Text2d::new(format!("{}", position));
+
+                color.0 = if maze.dims_limit().get(label.dimension) == Some(&position) {
+                    bevy::color::palettes::css::LIMEGREEN.into()
+                } else {
+                    Color::WHITE
+                };
             }
         }
     }
