@@ -1,0 +1,12 @@
+(
+    entities: {
+        0: (
+            components: {
+                "bevy_ui::ui_node::Style": (),
+                "bevy_ui::ui_node::Node": (),
+                "bevy_ui::ui_node::BackgroundColor": (WHITE),
+                "bevy_transform::components::transform::Transform": ()
+            }
+        )
+    }
+)

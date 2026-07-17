@@ -1,46 +1,59 @@
-#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
-
+mod assets;
 mod level;
 mod maze;
+mod menu;
+mod ui;
+mod util;
 
 use bevy::prelude::*;
 
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+use assets::CommonAssets;
+
+#[derive(Debug, Clone, Eq, PartialEq, Hash, States, Default)]
 pub enum AppState {
+    #[default]
+    Splash,
     MainMenu,
     InMaze,
-    Paused,
 }
 
 fn main() {
     App::new()
-        .add_state(AppState::MainMenu)
         .add_plugins(DefaultPlugins)
-        .add_plugin(level::LevelPlugin)
-        .add_startup_system(setup)
+        .init_state::<AppState>()
+        .add_plugins(level::LevelPluginBundle)
+        .add_plugins(ui::plugin)
+        .add_plugins(menu::main_menu_plugin)
+        //.add_plugins(EguiPlugin::default())
+        //.add_plugins(
+        //    WorldInspectorPlugin::default().run_if(input_toggle_active(true, KeyCode::Escape)),
+        //)
+        .add_systems(Startup, setup)
+        .add_systems(Startup, CommonAssets::load_resource)
+        .add_systems(Startup, loading_done)
         .run();
 }
 
-fn setup(mut c: Commands, mut maze_spawner: EventWriter<level::LoadLevel>) {
-    c.spawn_bundle(OrthographicCameraBundle::new_2d());
-    c.spawn_bundle(PointLightBundle {
-        point_light: PointLight {
+fn loading_done(mut main_state: ResMut<NextState<AppState>>) {
+    main_state.set(AppState::MainMenu);
+}
+
+fn setup(mut c: Commands, mut _maze_spawner: MessageWriter<level::LoadLevel>) {
+    c.spawn((
+        Camera3d::default(),
+        Transform::from_xyz(-6.0, 10.0, -4.0).looking_at(Vec3::new(2.0, 0.0, 2.0), Vec3::Y),
+    ));
+    c.spawn((
+        PointLight {
             intensity: 1500.0,
-            shadows_enabled: true,
+            shadow_maps_enabled: true,
             ..Default::default()
         },
-        transform: Transform::from_xyz(4.0, 8.0, 4.0),
-        ..Default::default()
-    });
+        Transform::from_xyz(4.0, 8.0, 4.0),
+    ));
 
-    c.spawn_bundle(PerspectiveCameraBundle {
-        transform: Transform::from_xyz(-6.0, 10.0, -4.0)
-            .looking_at(Vec3::new(2.0, 0.0, 2.0), Vec3::Y),
-        ..Default::default()
-    });
-    c.spawn_bundle(UiCameraBundle::default());
-    maze_spawner.send(level::LoadLevel {
-        dimensions: level::DimensionLength::Three([4, 15, 2]),
-        ..Default::default()
-    });
+    //maze_spawner.send(level::LoadLevel {
+    //    dimensions: level::DimensionLength::Three([4, 15, 2]),
+    //    ..Default::default()
+    //});
 }

@@ -159,12 +159,12 @@ mod tests {
         let c1 = MazeGenCell::new(1);
         let c2 = MazeGenCell::new(2);
 
-        assert_eq!(MazeGenCell::try_merge(&c0, &c1), true);
-        assert_eq!(MazeGenCell::try_merge(&c0, &c1), false);
-        assert_eq!(MazeGenCell::try_merge(&c1, &c0), false);
+        assert!(MazeGenCell::try_merge(&c0, &c1));
+        assert!(!MazeGenCell::try_merge(&c0, &c1));
+        assert!(!MazeGenCell::try_merge(&c1, &c0));
 
-        assert_eq!(MazeGenCell::try_merge(&c1, &c2), true);
-        assert_eq!(MazeGenCell::try_merge(&c0, &c2), false);
+        assert!(MazeGenCell::try_merge(&c1, &c2));
+        assert!(!MazeGenCell::try_merge(&c0, &c2));
     }
 
     #[test]
@@ -173,12 +173,12 @@ mod tests {
         let c1 = MazeGenCell::new(1);
         let c2 = MazeGenCell::new(2);
 
-        assert_eq!(MazeGenCell::try_merge(&c0, &c1), true);
-        assert_eq!(MazeGenCell::try_merge(&c0, &c1), false);
-        assert_eq!(MazeGenCell::try_merge(&c1, &c0), false);
+        assert!(MazeGenCell::try_merge(&c0, &c1));
+        assert!(!MazeGenCell::try_merge(&c0, &c1));
+        assert!(!MazeGenCell::try_merge(&c1, &c0));
 
-        assert_eq!(MazeGenCell::try_merge(&c0, &c2), true);
-        assert_eq!(MazeGenCell::try_merge(&c1, &c2), false);
+        assert!(MazeGenCell::try_merge(&c0, &c2));
+        assert!(!MazeGenCell::try_merge(&c1, &c2));
     }
 
     #[test]

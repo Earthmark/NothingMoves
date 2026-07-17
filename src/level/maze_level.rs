@@ -1,21 +1,13 @@
 use std::ops::{Deref, DerefMut};
 
+use bevy::prelude::Resource;
+
 use crate::maze;
 
 struct MazeImpl<const DIMS: usize> {
     maze: maze::Maze<DIMS>,
     position: [u8; DIMS],
     axis: [u8; 2],
-}
-
-#[derive(Clone, Debug)]
-pub struct AxisChanged {
-    pub axis: [u8; 2],
-}
-
-#[derive(Clone, Debug)]
-pub struct PositionChanged {
-    pub position: [u8; 2],
 }
 
 #[derive(PartialEq, Eq, Clone, Copy)]
@@ -53,11 +45,21 @@ pub enum Direction {
 }
 
 impl Direction {
+    /*
     fn shift_wrapped(&self, value: u8, limit: u8) -> u8 {
         (match self {
             Direction::Positive => value.checked_add(1).unwrap_or(0),
-            Direction::Negative => value.checked_sub(1).unwrap_or(limit - 2),
-        } % (limit - 1))
+            Direction::Negative => value.checked_sub(1).unwrap_or(limit - 1),
+        } % limit)
+    }
+     */
+
+    fn shift_clamped(&self, value: u8, limit: u8) -> u8 {
+        match self {
+            Direction::Positive => value.checked_add(1).unwrap_or(limit - 1),
+            Direction::Negative => value.saturating_sub(1),
+        }
+        .clamp(0, limit - 1)
     }
 }
 
@@ -96,7 +98,7 @@ impl<const DIMS: usize> MazeView for MazeImpl<DIMS> {
             target_axis
         };
 
-        let new_off_axis = dir.shift_wrapped(linear_current, DIMS as u8);
+        let new_off_axis = dir.shift_clamped(linear_current, DIMS as u8 - 1);
         let dest = if new_off_axis >= off_target_axis {
             new_off_axis + 1
         } else {
@@ -129,6 +131,13 @@ impl<const DIMS: usize> MazeView for MazeImpl<DIMS> {
         ]
     }
 
+    fn pos_in(&self, axis: [u8; 2]) -> [u8; 2] {
+        [
+            self.position[axis[0] as usize],
+            self.position[axis[1] as usize],
+        ]
+    }
+
     fn move_pos(&mut self, axis: Axis, dir: Direction) {
         let dim = *axis.get(&self.axis) as usize;
         if let Some(true) = self.can_move(dim as u8, dir) {
@@ -146,11 +155,8 @@ impl<const DIMS: usize> MazeView for MazeImpl<DIMS> {
         let dim = dim as usize;
         let mut pos = self.position;
         if dir == Direction::Negative {
-            if let Some(new_pos) = pos[dim].checked_sub(1) {
-                pos[dim] = new_pos;
-            } else {
-                return None;
-            }
+            let new_pos = pos[dim].checked_sub(1)?;
+            pos[dim] = new_pos;
         }
         self.maze.can_move(&pos, dim)
     }
@@ -175,6 +181,7 @@ pub trait MazeView: Sync + Send {
     fn dims(&self) -> &[u8];
     fn pos_limit(&self) -> [u8; 2];
     fn pos(&self) -> [u8; 2];
+    fn pos_in(&self, axis: [u8; 2]) -> [u8; 2];
     fn move_pos(&mut self, axis: Axis, dir: Direction);
 
     fn can_move(&self, dim: u8, dir: Direction) -> Option<bool>;
@@ -182,6 +189,7 @@ pub trait MazeView: Sync + Send {
     fn wall_in_current(&self, position: [u8; 2], axis: Axis) -> bool;
 }
 
+#[derive(Resource)]
 pub struct MazeLevel {
     inner: Box<dyn MazeView>,
 }
@@ -189,7 +197,7 @@ pub struct MazeLevel {
 impl Default for MazeLevel {
     fn default() -> Self {
         Self {
-            inner: Box::new(MazeImpl::<2>::default()),
+            inner: Box::<MazeImpl<2>>::default(),
         }
     }
 }
