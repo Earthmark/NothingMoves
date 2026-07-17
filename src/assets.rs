@@ -31,8 +31,8 @@ impl CommonAssets {
 
     pub fn common_text_style(&self) -> TextFont {
         TextFont {
-            font: self.common_font.clone(),
-            font_size: 50.0,
+            font: FontSource::Handle(self.common_font.clone()),
+            font_size: FontSize::Px(50.0),
             ..default()
         }
     }

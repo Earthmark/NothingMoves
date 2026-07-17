@@ -5,10 +5,7 @@ mod menu;
 mod ui;
 mod util;
 
-use bevy::input::common_conditions::input_toggle_active;
 use bevy::prelude::*;
-use bevy_inspector_egui::bevy_egui::EguiPlugin;
-use bevy_inspector_egui::quick::WorldInspectorPlugin;
 
 use assets::CommonAssets;
 
@@ -27,12 +24,10 @@ fn main() {
         .add_plugins(level::LevelPluginBundle)
         .add_plugins(ui::plugin)
         .add_plugins(menu::main_menu_plugin)
-        .add_plugins(EguiPlugin {
-            enable_multipass_for_primary_context: true,
-        })
-        .add_plugins(
-            WorldInspectorPlugin::default().run_if(input_toggle_active(true, KeyCode::Escape)),
-        )
+        //.add_plugins(EguiPlugin::default())
+        //.add_plugins(
+        //    WorldInspectorPlugin::default().run_if(input_toggle_active(true, KeyCode::Escape)),
+        //)
         .add_systems(Startup, setup)
         .add_systems(Startup, CommonAssets::load_resource)
         .add_systems(Startup, loading_done)
@@ -43,7 +38,7 @@ fn loading_done(mut main_state: ResMut<NextState<AppState>>) {
     main_state.set(AppState::MainMenu);
 }
 
-fn setup(mut c: Commands, mut _maze_spawner: EventWriter<level::LoadLevel>) {
+fn setup(mut c: Commands, mut _maze_spawner: MessageWriter<level::LoadLevel>) {
     c.spawn((
         Camera3d::default(),
         Transform::from_xyz(-6.0, 10.0, -4.0).looking_at(Vec3::new(2.0, 0.0, 2.0), Vec3::Y),
@@ -51,7 +46,7 @@ fn setup(mut c: Commands, mut _maze_spawner: EventWriter<level::LoadLevel>) {
     c.spawn((
         PointLight {
             intensity: 1500.0,
-            shadows_enabled: true,
+            shadow_maps_enabled: true,
             ..Default::default()
         },
         Transform::from_xyz(4.0, 8.0, 4.0),

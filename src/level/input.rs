@@ -7,8 +7,8 @@ pub struct MazeInputBundle;
 
 impl Plugin for MazeInputBundle {
     fn build(&self, app: &mut App) {
-        app.add_event::<AxisChanged>()
-            .add_event::<PositionChanged>()
+        app.add_message::<AxisChanged>()
+            .add_message::<PositionChanged>()
             .add_systems(OnEnter(crate::AppState::InMaze), initial_events_on_load)
             .add_systems(
                 Update,
@@ -17,13 +17,13 @@ impl Plugin for MazeInputBundle {
     }
 }
 
-#[derive(Clone, Debug, Event)]
+#[derive(Clone, Debug, Message)]
 pub struct AxisChanged {
     pub axis: [u8; 2],
     pub previous_axis: [u8; 2],
 }
 
-#[derive(Clone, Debug, Event)]
+#[derive(Clone, Debug, Message)]
 pub struct PositionChanged {
     pub position: [u8; 2],
     pub previous_position: [u8; 2],
@@ -31,8 +31,8 @@ pub struct PositionChanged {
 
 fn initial_events_on_load(
     maze: Res<MazeLevel>,
-    mut position_changed: EventWriter<PositionChanged>,
-    mut axis_changed: EventWriter<AxisChanged>,
+    mut position_changed: MessageWriter<PositionChanged>,
+    mut axis_changed: MessageWriter<AxisChanged>,
 ) {
     position_changed.write(PositionChanged {
         position: maze.pos(),
@@ -47,8 +47,8 @@ fn initial_events_on_load(
 fn level_navigation(
     mut level: ResMut<MazeLevel>,
     keys: Res<ButtonInput<KeyCode>>,
-    mut position_event: EventWriter<PositionChanged>,
-    mut axis_event: EventWriter<AxisChanged>,
+    mut position_event: MessageWriter<PositionChanged>,
+    mut axis_event: MessageWriter<AxisChanged>,
 ) {
     let mut shift_axis = |key: KeyCode, axis: Axis, dir: Direction| {
         if keys.just_pressed(key) {

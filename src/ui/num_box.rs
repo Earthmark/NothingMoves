@@ -38,12 +38,11 @@ impl CommonSpawnable for SpawnableNumBox {
         let mut label_target = Entity::PLACEHOLDER;
         c.spawn((
             Node {
-                flex_direction: FlexDirection::Column,
+                flex_direction: FlexDirection::Row,
                 align_items: AlignItems::Center,
                 align_self: AlignSelf::Center,
                 justify_content: JustifyContent::Center,
-                padding: UiRect::new(Val::Px(16.0), Val::Px(16.0), Val::Px(8.0), Val::Px(8.0)),
-                margin: UiRect::all(Val::Px(12.0)),
+                padding: UiRect::new(Val::Px(4.0), Val::Px(16.0), Val::Px(8.0), Val::Px(8.0)),
                 ..default()
             },
             bundle,
@@ -57,28 +56,14 @@ impl CommonSpawnable for SpawnableNumBox {
             },
         ))
         .with_children(|c| {
-            SpawnableButton::normal("+10").spawn_under(
+            SpawnableButton::normal("-10").spawn_under(
                 assets,
                 c,
                 NumBoxShift {
                     src: c.target_entity(),
-                    offset: 10,
+                    offset: -10,
                 },
             );
-            SpawnableButton::normal("+1").spawn_under(
-                assets,
-                c,
-                NumBoxShift {
-                    src: c.target_entity(),
-                    offset: 1,
-                },
-            );
-            let label = c.spawn((
-                Text2d::new(self.initial.to_string()),
-                assets.common_text_style(),
-            ));
-            label_target = label.id();
-
             SpawnableButton::normal("-1").spawn_under(
                 assets,
                 c,
@@ -87,12 +72,29 @@ impl CommonSpawnable for SpawnableNumBox {
                     offset: -1,
                 },
             );
-            SpawnableButton::normal("-10").spawn_under(
+            let label = c.spawn((
+                Text::new(self.initial.to_string()),
+                assets.common_text_style(),
+                Node {
+                    padding: UiRect::new(Val::Px(12.), Val::Px(12.), Val::ZERO, Val::ZERO),
+                    ..default()
+                }
+            ));
+            label_target = label.id();
+            SpawnableButton::normal("+1").spawn_under(
                 assets,
                 c,
                 NumBoxShift {
                     src: c.target_entity(),
-                    offset: -10,
+                    offset: 1,
+                },
+            );
+            SpawnableButton::normal("+10").spawn_under(
+                assets,
+                c,
+                NumBoxShift {
+                    src: c.target_entity(),
+                    offset: 10,
                 },
             );
         })

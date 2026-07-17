@@ -102,8 +102,8 @@ fn update_maze_offset(
     time: Res<Time>,
     mut c: Commands,
     mut maze_query: Query<(Entity, &MazePositionTracker, &Transform), Without<RemoveAt>>,
-    mut position_changed: EventReader<super::PositionChanged>,
-    mut axis_changed: EventReader<super::AxisChanged>,
+    mut position_changed: MessageReader<super::PositionChanged>,
+    mut axis_changed: MessageReader<super::AxisChanged>,
 ) {
     let mut update_pos = || {
         for (e, renderer, trs) in &mut maze_query {
@@ -163,7 +163,7 @@ fn maze_level_renderer(
     level: Res<MazeLevel>,
     assets: Res<MazeAssets>,
     mut c: Commands,
-    mut axis_changed: EventReader<super::AxisChanged>,
+    mut axis_changed: MessageReader<super::AxisChanged>,
 ) {
     for axis in axis_changed.read() {
         let start = get_rot_from_axis(axis).inverse();
@@ -253,7 +253,7 @@ fn start_despawn_of_render(
     time: Res<Time>,
     mut c: Commands,
     render_query: Query<Entity, (With<MazeRotationTracker>, Without<RemoveAt>)>,
-    mut axis_changed: EventReader<super::AxisChanged>,
+    mut axis_changed: MessageReader<super::AxisChanged>,
 ) {
     for axis in axis_changed.read() {
         for e in &render_query {

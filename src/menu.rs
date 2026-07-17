@@ -95,12 +95,11 @@ fn setup_main_menu(
     c.spawn((
         MainRootMarker,
         Node {
-            justify_content: JustifyContent::Center,
-            align_content: AlignContent::Center,
-            align_items: AlignItems::Center,
-            flex_direction: FlexDirection::Column,
             width: Val::Percent(100.),
             height: Val::Percent(100.),
+            flex_direction: FlexDirection::Column,
+            align_items: AlignItems::Center,
+            justify_content: JustifyContent::Center,
             ..default()
         },
     ))
@@ -110,15 +109,19 @@ fn setup_main_menu(
                 margin: UiRect::vertical(Val::Px(30.)),
                 ..default()
             },
-            Text2d::new("Nothing Moves"),
+            Text::new("Nothing Moves"),
             TextFont {
-                font_size: 150.,
+                font_size: FontSize::Px(150.),
                 ..assets.common_text_style()
             },
+            VisibleIn::new(MainMenuSelection::Main),
         ));
 
         c.spawn((
-            Node::default(),
+            Node {
+                column_gap: Val::Px(8.),
+                ..default()
+            },
             VisibleIn::new(MainMenuSelection::Main),
         ))
         .with_children(|c| {
@@ -137,7 +140,10 @@ fn setup_main_menu(
         });
 
         c.spawn((
-            Node::default(),
+            Node {
+                flex_direction: FlexDirection::Column,
+                ..default()
+            },
             VisibleIn::new(MainMenuSelection::New),
         ))
         .with_children(|c| {
@@ -206,23 +212,21 @@ impl DimensionLengthPicker {
 
 fn dimension_length_visibility(
     dimension_count: Query<&NumBox, With<DimensionCountPicker>>,
-    mut dimension_length: Query<(&DimensionLengthPicker, &mut Visibility)>,
+    mut dimension_length: Query<(&DimensionLengthPicker, &mut Node)>,
 ) {
     let active_dimension_count = dimension_count.single().unwrap().get();
-    for (dims, mut visibility) in &mut dimension_length {
-        *visibility = if dims.dimension_index < active_dimension_count {
-            Visibility::Visible
+    for (dims, mut node) in &mut dimension_length {
+        node.display = if dims.dimension_index < active_dimension_count {
+            Display::Flex
         } else {
-            Visibility::Hidden
+            Display::None
         };
     }
 }
 
-fn reset_invisible(
-    mut dimension_length: Query<(&Visibility, &mut NumBox), With<DimensionLengthPicker>>,
-) {
-    for (vis, mut num) in &mut dimension_length {
-        if let Visibility::Hidden = vis {
+fn reset_invisible(mut dimension_length: Query<(&Node, &mut NumBox), With<DimensionLengthPicker>>) {
+    for (node, mut num) in &mut dimension_length {
+        if let Display::None = node.display {
             if num.get() != 1 {
                 num.set(1);
             }
@@ -249,12 +253,12 @@ fn dimension_max_size_num_box_enforcement(
 struct CancelMarker;
 
 fn exit_action(
-    mut exit: ResMut<Events<AppExit>>,
+    mut exit: MessageWriter<AppExit>,
     q: Query<&Interaction, (Changed<Interaction>, With<CancelMarker>)>,
 ) {
     for inter in &q {
         if let Interaction::Pressed = inter {
-            exit.send(AppExit::Success);
+            exit.write(AppExit::Success);
         }
     }
 }
@@ -294,7 +298,7 @@ fn generate_action(
     q: Query<&Interaction, (Changed<Interaction>, With<GenerateMarker>)>,
     dimension_count: Query<&NumBox, With<DimensionCountPicker>>,
     dimension_length: Query<(&NumBox, &DimensionLengthPicker)>,
-    mut loader: EventWriter<LoadLevel>,
+    mut loader: MessageWriter<LoadLevel>,
 ) {
     for inter in &q {
         if let Interaction::Pressed = inter {

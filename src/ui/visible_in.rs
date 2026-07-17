@@ -6,7 +6,7 @@ where
 {
     app.add_systems(
         Update,
-        update_visibility::<States>.run_if(state_exists::<States>.and(state_changed::<States>)),
+        update_visibility::<States>.run_if(state_exists::<States>.and_then(state_changed::<States>)),
     );
 }
 
@@ -20,16 +20,16 @@ impl<States> VisibleIn<States> {
 }
 
 fn update_visibility<States>(
-    mut maybe_changed: Query<(&mut Visibility, &VisibleIn<States>)>,
+    mut maybe_changed: Query<(&mut Node, &VisibleIn<States>)>,
     state: Res<State<States>>,
 ) where
     States: bevy::prelude::States,
 {
-    for (mut vis, expected) in &mut maybe_changed {
-        *vis = if &expected.0 == state.get() {
-            Visibility::Visible
+    for (mut node, expected) in &mut maybe_changed {
+        node.display = if &expected.0 == state.get() {
+            Display::Flex
         } else {
-            Visibility::Hidden
+            Display::None
         };
     }
 }

@@ -125,16 +125,16 @@ impl CommonSpawnable for SpawnableButton {
                 align_items: AlignItems::Center,
                 align_self: AlignSelf::Center,
                 justify_content: JustifyContent::Center,
-                padding: UiRect::new(Val::Px(16.0), Val::Px(16.0), Val::Px(8.0), Val::Px(8.0)),
-                margin: UiRect::all(Val::Px(12.0)),
+                padding: UiRect::new(Val::Px(12.0), Val::Px(12.0), Val::Px(4.0), Val::Px(4.0)),
                 ..default()
             },
             BackgroundColor(self.kind.color_for(&Interaction::None)),
             self.kind,
+            Button,
             bundle,
         ))
         .with_children(|c| {
-            c.spawn((Text2d::new(self.text), assets.common_text_style()));
+            c.spawn((Text::new(self.text), assets.common_text_style()));
         });
     }
 }

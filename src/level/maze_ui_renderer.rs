@@ -74,7 +74,7 @@ struct DimensionArrowUpdater {
 
 fn update_guide_arrows(
     ui_assets: Res<MazeUiResources>,
-    mut axis_changed: EventReader<super::AxisChanged>,
+    mut axis_changed: MessageReader<super::AxisChanged>,
     mut query: Query<(&DimensionArrowUpdater, &mut ImageNode)>,
 ) {
     for _ in axis_changed.read() {
@@ -277,8 +277,8 @@ struct MazeAxisLabel {
 fn maze_axis_label_background_updater(
     level: Res<MazeLevel>,
     mut query: Query<(&MazeAxisLabel, &mut BackgroundColor)>,
-    mut axis_changed: EventReader<super::AxisChanged>,
-    mut position_changed: EventReader<super::PositionChanged>,
+    mut axis_changed: MessageReader<super::AxisChanged>,
+    mut position_changed: MessageReader<super::PositionChanged>,
 ) {
     let mut update_bg = || {
         for (axis, mut ui_color) in query.iter_mut() {
@@ -299,7 +299,7 @@ fn maze_axis_label_background_updater(
 
 fn maze_axis_label_update_listener(
     mut query: Query<(&MazeAxisLabel, &mut Text2d)>,
-    mut axis_changed: EventReader<super::AxisChanged>,
+    mut axis_changed: MessageReader<super::AxisChanged>,
 ) {
     for changed in axis_changed.read() {
         for (label, mut text) in query.iter_mut() {
@@ -328,7 +328,7 @@ struct MazePositionLabel {
 fn maze_position_label_update_listener(
     maze: Res<MazeLevel>,
     mut query: Query<(&MazePositionLabel, &mut Text2d, &mut TextColor)>,
-    mut position_changed: EventReader<super::PositionChanged>,
+    mut position_changed: MessageReader<super::PositionChanged>,
 ) {
     for _ in position_changed.read() {
         for (label, mut text, mut color) in query.iter_mut() {
