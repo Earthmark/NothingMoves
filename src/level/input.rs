@@ -25,8 +25,8 @@ pub struct AxisChanged {
 
 #[derive(Clone, Debug, Message)]
 pub struct PositionChanged {
-    pub position: [u8; 2],
-    pub previous_position: [u8; 2],
+    pub _position: [u8; 2],
+    pub _previous_position: [u8; 2],
 }
 
 fn initial_events_on_load(
@@ -35,8 +35,8 @@ fn initial_events_on_load(
     mut axis_changed: MessageWriter<AxisChanged>,
 ) {
     position_changed.write(PositionChanged {
-        position: maze.pos(),
-        previous_position: maze.pos(),
+        _position: maze.pos(),
+        _previous_position: maze.pos(),
     });
     axis_changed.write(AxisChanged {
         axis: maze.axis(),
@@ -74,8 +74,8 @@ fn level_navigation(
             let position = level.pos();
             if previous_position != position {
                 position_event.write(PositionChanged {
-                    position,
-                    previous_position,
+                    _position: position,
+                    _previous_position: previous_position,
                 });
             }
         }

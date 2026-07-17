@@ -85,8 +85,7 @@ fn update_guide_arrows(
                 (false, true) => &ui_assets.rotate_arrow_flip_inactive,
                 (false, false) => &ui_assets.rotate_arrow_inactive,
             }
-            .clone()
-            .into();
+            .clone();
         }
     }
 }

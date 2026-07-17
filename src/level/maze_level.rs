@@ -155,11 +155,8 @@ impl<const DIMS: usize> MazeView for MazeImpl<DIMS> {
         let dim = dim as usize;
         let mut pos = self.position;
         if dir == Direction::Negative {
-            if let Some(new_pos) = pos[dim].checked_sub(1) {
-                pos[dim] = new_pos;
-            } else {
-                return None;
-            }
+            let new_pos = pos[dim].checked_sub(1)?;
+            pos[dim] = new_pos;
         }
         self.maze.can_move(&pos, dim)
     }

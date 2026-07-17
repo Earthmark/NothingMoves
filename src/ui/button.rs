@@ -67,12 +67,10 @@ impl ColorPalette {
     }
 }
 
-fn active_button_color_updates(
-    mut interaction_query: Query<
-        (&Interaction, &mut BackgroundColor, &ButtonKind),
-        (Changed<Interaction>, With<Button>),
-    >,
-) {
+type ButtonHoverProps<'a> = (&'a Interaction, &'a mut BackgroundColor, &'a ButtonKind);
+type ButtonHoverWatch = (Changed<Interaction>, With<Button>);
+
+fn active_button_color_updates(mut interaction_query: Query<ButtonHoverProps, ButtonHoverWatch>) {
     for (interaction, mut background, kind) in &mut interaction_query {
         *background = kind.color_for(interaction).into();
     }

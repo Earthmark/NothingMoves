@@ -78,7 +78,7 @@ impl CommonSpawnable for SpawnableNumBox {
                 Node {
                     padding: UiRect::new(Val::Px(12.), Val::Px(12.), Val::ZERO, Val::ZERO),
                     ..default()
-                }
+                },
             ));
             label_target = label.id();
             SpawnableButton::normal("+1").spawn_under(
