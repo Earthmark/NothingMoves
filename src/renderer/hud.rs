@@ -1,30 +1,27 @@
 use std::f32::consts::PI;
 
-use super::maze_level::{self, *};
+use crate::assets::CommonAssets;
+use crate::assets::MazeUiAssets;
+use crate::game::level::{Direction, MazeLevel};
+use crate::game::{AxisChanged, PositionChanged};
+use crate::screens::AppState;
 use bevy::prelude::*;
 
-use crate::CommonAssets;
-
-pub struct MazeUiRendererPlugin;
-
-impl Plugin for MazeUiRendererPlugin {
-    fn build(&self, app: &mut App) {
-        app.add_systems(
-            OnEnter(crate::AppState::InMaze),
-            (spawn_ui, create_rotation_binder),
+pub fn plugin(app: &mut App) {
+    app.add_systems(
+        OnEnter(AppState::InMaze),
+        (spawn_ui, create_rotation_binder),
+    )
+    .add_systems(
+        Update,
+        (
+            maze_axis_label_update_listener,
+            maze_position_label_update_listener,
+            maze_axis_label_background_updater,
+            update_guide_arrows,
         )
-        .add_systems(
-            Update,
-            (
-                maze_axis_label_update_listener,
-                maze_position_label_update_listener,
-                maze_axis_label_background_updater,
-                update_guide_arrows,
-            )
-                .run_if(in_state(crate::AppState::InMaze)),
-        )
-        .add_systems(Startup, MazeUiResources::load_resource);
-    }
+            .run_if(in_state(AppState::InMaze)),
+    );
 }
 
 // Current dimension status text layout:
@@ -56,16 +53,6 @@ impl Plugin for MazeUiRendererPlugin {
 //   (false, None) -> Greyed out circle,
 // }
 
-#[derive(Resource)]
-struct MazeUiResources {
-    rotate_arrow: Handle<Image>,
-    rotate_arrow_inactive: Handle<Image>,
-    rotate_arrow_flip: Handle<Image>,
-    rotate_arrow_flip_inactive: Handle<Image>,
-    move_arrow: Handle<Image>,
-    move_arrow_inactive: Handle<Image>,
-}
-
 #[derive(Component)]
 struct DimensionArrowUpdater {
     flipped: bool,
@@ -73,8 +60,8 @@ struct DimensionArrowUpdater {
 }
 
 fn update_guide_arrows(
-    ui_assets: Res<MazeUiResources>,
-    mut axis_changed: MessageReader<super::AxisChanged>,
+    ui_assets: Res<MazeUiAssets>,
+    mut axis_changed: MessageReader<AxisChanged>,
     mut query: Query<(&DimensionArrowUpdater, &mut ImageNode)>,
 ) {
     for _ in axis_changed.read() {
@@ -90,39 +77,21 @@ fn update_guide_arrows(
     }
 }
 
-impl MazeUiResources {
-    pub fn load_resource(mut c: Commands, assets: Res<AssetServer>) {
-        c.insert_resource(Self::load(assets))
-    }
-
-    //pub fn drop_resource(mut c: Commands) {
-    //    c.remove_resource::<Self>()
-    //}
-
-    fn load(asset_server: Res<AssetServer>) -> Self {
-        Self {
-            rotate_arrow: asset_server.load("textures\\circle_arrow.png"),
-            rotate_arrow_inactive: asset_server.load("textures\\circle_dash_arrow.png"),
-            rotate_arrow_flip: asset_server.load("textures\\circle_arrow_flip.png"),
-            rotate_arrow_flip_inactive: asset_server.load("textures\\circle_dash_arrow_flip.png"),
-            move_arrow: asset_server.load("textures\\arrow.png"),
-            move_arrow_inactive: asset_server.load("textures\\dash_arrow.png"),
-        }
-    }
-}
-
 fn create_rotation_binder(
     mut c: Commands,
     common_assets: Res<CommonAssets>,
-    ui_assets: Res<MazeUiResources>,
+    ui_assets: Res<MazeUiAssets>,
 ) {
-    c.spawn(Node {
-        position_type: PositionType::Absolute,
-        flex_direction: FlexDirection::Column,
-        margin: UiRect::all(Val::Px(10.0)),
-        align_items: AlignItems::Center,
-        ..default()
-    })
+    c.spawn((
+        Node {
+            position_type: PositionType::Absolute,
+            flex_direction: FlexDirection::Column,
+            margin: UiRect::all(Val::Px(10.0)),
+            align_items: AlignItems::Center,
+            ..default()
+        },
+        DespawnOnExit(AppState::InMaze),
+    ))
     .with_children(|c| {
         c.spawn(Node {
             flex_direction: FlexDirection::Column,
@@ -203,7 +172,7 @@ fn spawn_ui(mut c: Commands, maze: Res<MazeLevel>, common_assets: Res<CommonAsse
                 Node::default(),
                 MazeAxisLabel {
                     dim: dimension as u8,
-                    dir: maze_level::Direction::Negative,
+                    dir: Direction::Negative,
                 },
             ))
             .with_children(|c| {
@@ -211,7 +180,7 @@ fn spawn_ui(mut c: Commands, maze: Res<MazeLevel>, common_assets: Res<CommonAsse
                     label("-", bevy::color::palettes::css::DARK_GRAY.into()),
                     MazeAxisLabel {
                         dim: dimension as u8,
-                        dir: maze_level::Direction::Negative,
+                        dir: Direction::Negative,
                     },
                 ));
             });
@@ -221,7 +190,7 @@ fn spawn_ui(mut c: Commands, maze: Res<MazeLevel>, common_assets: Res<CommonAsse
                 Node::default(),
                 MazeAxisLabel {
                     dim: dimension as u8,
-                    dir: maze_level::Direction::Positive,
+                    dir: Direction::Positive,
                 },
             ))
             .with_children(|c| {
@@ -229,17 +198,20 @@ fn spawn_ui(mut c: Commands, maze: Res<MazeLevel>, common_assets: Res<CommonAsse
                     label("-", bevy::color::palettes::css::DARK_GRAY.into()),
                     MazeAxisLabel {
                         dim: dimension as u8,
-                        dir: maze_level::Direction::Positive,
+                        dir: Direction::Positive,
                     },
                 ));
             });
         }
     };
 
-    c.spawn(Node {
-        flex_direction: FlexDirection::Column,
-        ..default()
-    })
+    c.spawn((
+        Node {
+            flex_direction: FlexDirection::Column,
+            ..default()
+        },
+        DespawnOnExit(AppState::InMaze),
+    ))
     .with_children(|c| {
         c.spawn(Node {
             flex_direction: FlexDirection::Row,
@@ -270,14 +242,14 @@ fn spawn_ui(mut c: Commands, maze: Res<MazeLevel>, common_assets: Res<CommonAsse
 #[derive(Component, Clone)]
 struct MazeAxisLabel {
     dim: u8,
-    dir: maze_level::Direction,
+    dir: Direction,
 }
 
 fn maze_axis_label_background_updater(
     level: Res<MazeLevel>,
     mut query: Query<(&MazeAxisLabel, &mut BackgroundColor)>,
-    mut axis_changed: MessageReader<super::AxisChanged>,
-    mut position_changed: MessageReader<super::PositionChanged>,
+    mut axis_changed: MessageReader<AxisChanged>,
+    mut position_changed: MessageReader<PositionChanged>,
 ) {
     let mut update_bg = || {
         for (axis, mut ui_color) in query.iter_mut() {
@@ -298,19 +270,19 @@ fn maze_axis_label_background_updater(
 
 fn maze_axis_label_update_listener(
     mut query: Query<(&MazeAxisLabel, &mut Text2d)>,
-    mut axis_changed: MessageReader<super::AxisChanged>,
+    mut axis_changed: MessageReader<AxisChanged>,
 ) {
     for changed in axis_changed.read() {
         for (label, mut text) in query.iter_mut() {
             *text = Text2d::new(if changed.axis[0] == label.dim {
                 match label.dir {
-                    maze_level::Direction::Positive => "W",
-                    maze_level::Direction::Negative => "S",
+                    Direction::Positive => "W",
+                    Direction::Negative => "S",
                 }
             } else if changed.axis[1] == label.dim {
                 match label.dir {
-                    maze_level::Direction::Positive => "D",
-                    maze_level::Direction::Negative => "A",
+                    Direction::Positive => "D",
+                    Direction::Negative => "A",
                 }
             } else {
                 ""
@@ -327,7 +299,7 @@ struct MazePositionLabel {
 fn maze_position_label_update_listener(
     maze: Res<MazeLevel>,
     mut query: Query<(&MazePositionLabel, &mut Text2d, &mut TextColor)>,
-    mut position_changed: MessageReader<super::PositionChanged>,
+    mut position_changed: MessageReader<PositionChanged>,
 ) {
     for _ in position_changed.read() {
         for (label, mut text, mut color) in query.iter_mut() {

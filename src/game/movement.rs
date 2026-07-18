@@ -1,20 +1,25 @@
+use super::level::*;
+use super::level::{Axis, Direction};
+use crate::screens::AppState;
+use bevy::input::common_conditions::input_just_pressed;
 use bevy::prelude::*;
 
-use super::maze_level::*;
-use super::maze_level::{Axis, Direction};
+pub fn plugin(app: &mut App) {
+    app.add_message::<AxisChanged>()
+        .add_message::<PositionChanged>()
+        .add_systems(OnEnter(AppState::InMaze), initial_events_on_load)
+        .add_systems(
+            Update,
+            (
+                level_navigation,
+                back_to_menu.run_if(input_just_pressed(KeyCode::Escape)),
+            )
+                .run_if(in_state(AppState::InMaze)),
+        );
+}
 
-pub struct MazeInputBundle;
-
-impl Plugin for MazeInputBundle {
-    fn build(&self, app: &mut App) {
-        app.add_message::<AxisChanged>()
-            .add_message::<PositionChanged>()
-            .add_systems(OnEnter(crate::AppState::InMaze), initial_events_on_load)
-            .add_systems(
-                Update,
-                level_navigation.run_if(in_state(crate::AppState::InMaze)),
-            );
-    }
+fn back_to_menu(mut state: ResMut<NextState<AppState>>) {
+    state.set(AppState::MainMenu);
 }
 
 #[derive(Clone, Debug, Message)]

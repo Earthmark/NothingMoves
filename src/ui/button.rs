@@ -1,138 +1,69 @@
 use bevy::prelude::*;
 
-use crate::assets::{CommonAssets, CommonSpawnable};
+use crate::assets::CommonAssets;
 
 pub fn plugin(app: &mut App) {
-    app.add_systems(
-        Update,
-        (
-            active_button_color_updates,
-            button_made_inactive_color_update,
-            button_made_active_color_update,
-        ),
-    );
+    app.add_systems(Update, button_color_updates);
 }
 
-#[derive(Component)]
-pub enum ButtonKind {
-    Primary,
-    Normal,
-}
-
-impl ButtonKind {
-    fn palette_for(&self) -> &ColorPalette {
-        match self {
-            Self::Normal => &NORMAL_PALETTE,
-            Self::Primary => &PRIMARY_PALETTE,
-        }
-    }
-
-    fn color_for(&self, i: &Interaction) -> Color {
-        self.palette_for().color_for(i)
-    }
-
-    fn inactive_color(&self) -> Color {
-        self.palette_for().inactive
-    }
-}
-
-const NORMAL_PALETTE: ColorPalette = ColorPalette {
+pub const NORMAL_PALETTE: InteractionPalette = InteractionPalette {
     normal: Color::srgb(0.15, 0.15, 0.15),
     hovered: Color::srgb(0.25, 0.25, 0.25),
     clicked: Color::srgb(0.35, 0.75, 0.35),
-    inactive: Color::srgb(0.15, 0.15, 0.15),
 };
 
-const PRIMARY_PALETTE: ColorPalette = ColorPalette {
+pub const PRIMARY_PALETTE: InteractionPalette = InteractionPalette {
     normal: Color::srgb(0.15, 0.15, 0.15),
     hovered: Color::srgb(0.25, 0.25, 0.25),
     clicked: Color::srgb(0.35, 0.75, 0.35),
-    inactive: Color::srgb(0.15, 0.15, 0.15),
 };
 
-struct ColorPalette {
+pub fn button(
+    text: impl Into<String>,
+    palette: InteractionPalette,
+    assets: &CommonAssets,
+) -> impl Bundle {
+    let bg_color = palette.normal;
+    (
+        Button,
+        Node {
+            padding: UiRect::axes(Val::Px(12.0), Val::Px(4.0)),
+            justify_content: JustifyContent::Center,
+            align_items: AlignItems::Center,
+            ..default()
+        },
+        palette,
+        BackgroundColor(bg_color),
+        children![(Text::new(text), assets.common_text_style())],
+    )
+}
+
+pub fn button_normal(text: impl Into<String>, assets: &CommonAssets) -> impl Bundle {
+    button(text, NORMAL_PALETTE, assets)
+}
+
+pub fn button_primary(text: impl Into<String>, assets: &CommonAssets) -> impl Bundle {
+    button(text, PRIMARY_PALETTE, assets)
+}
+
+#[derive(Component, Clone)]
+pub struct InteractionPalette {
     normal: Color,
     hovered: Color,
     clicked: Color,
-    inactive: Color,
 }
 
-impl ColorPalette {
-    fn color_for(&self, i: &Interaction) -> Color {
-        match i {
-            Interaction::Pressed => self.clicked,
-            Interaction::Hovered => self.hovered,
-            Interaction::None => self.normal,
-        }
-    }
-}
-
-type ButtonHoverProps<'a> = (&'a Interaction, &'a mut BackgroundColor, &'a ButtonKind);
-type ButtonHoverWatch = (Changed<Interaction>, With<Button>);
-
-fn active_button_color_updates(mut interaction_query: Query<ButtonHoverProps, ButtonHoverWatch>) {
-    for (interaction, mut background, kind) in &mut interaction_query {
-        *background = kind.color_for(interaction).into();
-    }
-}
-
-fn button_made_inactive_color_update(
-    mut removed_buttons: RemovedComponents<Button>,
-    mut interaction_query: Query<(&mut BackgroundColor, &ButtonKind)>,
+fn button_color_updates(
+    mut interaction_query: Query<
+        (&Interaction, &mut BackgroundColor, &InteractionPalette),
+        (Changed<Interaction>, With<Button>),
+    >,
 ) {
-    for e in removed_buttons.read() {
-        if let Ok((mut background, kind)) = interaction_query.get_mut(e) {
-            *background = kind.inactive_color().into();
-        }
-    }
-}
-
-fn button_made_active_color_update(
-    mut interaction_query: Query<(&Interaction, &mut BackgroundColor, &ButtonKind), Added<Button>>,
-) {
-    for (interaction, mut background, kind) in &mut interaction_query {
-        *background = kind.color_for(interaction).into();
-    }
-}
-
-pub struct SpawnableButton {
-    kind: ButtonKind,
-    text: String,
-}
-
-impl SpawnableButton {
-    pub fn primary(text: impl Into<String>) -> Self {
-        Self {
-            kind: ButtonKind::Primary,
-            text: text.into(),
-        }
-    }
-
-    pub fn normal(text: impl Into<String>) -> Self {
-        Self {
-            kind: ButtonKind::Normal,
-            text: text.into(),
-        }
-    }
-}
-
-impl CommonSpawnable for SpawnableButton {
-    fn spawn_under(self, assets: &CommonAssets, c: &mut ChildSpawnerCommands, bundle: impl Bundle) {
-        c.spawn((
-            Node {
-                align_items: AlignItems::Center,
-                align_self: AlignSelf::Center,
-                justify_content: JustifyContent::Center,
-                padding: UiRect::new(Val::Px(12.0), Val::Px(12.0), Val::Px(4.0), Val::Px(4.0)),
-                ..default()
-            },
-            BackgroundColor(self.kind.color_for(&Interaction::None)),
-            self.kind,
-            Button,
-            bundle,
-        ))
-        .with_children(|c| {
-            c.spawn((Text::new(self.text), assets.common_text_style()));
-        });
+    for (interaction, mut background, palette) in &mut interaction_query {
+        background.0 = match interaction {
+            Interaction::None => palette.normal,
+            Interaction::Hovered => palette.hovered,
+            Interaction::Pressed => palette.clicked,
+        };
     }
 }
