@@ -14,8 +14,7 @@ pub fn plugin(app: &mut App) {
         .add_systems(
             Update,
             (
-                start_despawn_of_render
-                    .after(TweenTick),
+                start_despawn_of_render.after(TweenTick),
                 maze_level_renderer.after(start_despawn_of_render),
                 update_maze_offset.after(maze_level_renderer),
             )
