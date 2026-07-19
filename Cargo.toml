@@ -5,7 +5,7 @@ name = "nothing-moves"
 version = "0.1.0"
 
 [dependencies]
-bevy = "*"
+bevy = {  version = "*", features = ["system_clipboard"] }
 rand = "*"
 bevy-inspector-egui = "*"
 
@@ -32,3 +32,7 @@ lto = "fat"
 # When building crates, optimize larger chunks at a time
 # Slows compile times, marginal improvements
 codegen-units = 1
+
+# Bevy often uses very long type names for queries.
+[lints.clippy]
+type_complexity = "allow"

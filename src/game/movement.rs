@@ -1,43 +1,25 @@
+use super::level::*;
+use super::level::{Axis, Direction};
+use crate::screens::maze::GameScreen;
+use crate::screens::AppState;
 use bevy::prelude::*;
 
-use super::maze_level::*;
-use super::maze_level::{Axis, Direction};
-
-pub struct MazeInputBundle;
-
-impl Plugin for MazeInputBundle {
-    fn build(&self, app: &mut App) {
-        app.add_message::<AxisChanged>()
-            .add_message::<PositionChanged>()
-            .add_systems(OnEnter(crate::AppState::InMaze), initial_events_on_load)
-            .add_systems(
-                Update,
-                level_navigation.run_if(in_state(crate::AppState::InMaze)),
-            );
-    }
+pub fn plugin(app: &mut App) {
+    app.add_message::<AxisChanged>()
+        .add_systems(OnEnter(AppState::InMaze), initial_events_on_load)
+        .add_systems(
+            Update,
+            (level_navigation,).run_if(in_state(GameScreen::Level)),
+        );
 }
 
 #[derive(Clone, Debug, Message)]
 pub struct AxisChanged {
-    pub axis: [u8; 2],
-    pub previous_axis: [u8; 2],
+    pub axis: [usize; 2],
+    pub previous_axis: [usize; 2],
 }
 
-#[derive(Clone, Debug, Message)]
-pub struct PositionChanged {
-    pub _position: [u8; 2],
-    pub _previous_position: [u8; 2],
-}
-
-fn initial_events_on_load(
-    maze: Res<MazeLevel>,
-    mut position_changed: MessageWriter<PositionChanged>,
-    mut axis_changed: MessageWriter<AxisChanged>,
-) {
-    position_changed.write(PositionChanged {
-        _position: maze.pos(),
-        _previous_position: maze.pos(),
-    });
+fn initial_events_on_load(maze: Res<MazeLevel>, mut axis_changed: MessageWriter<AxisChanged>) {
     axis_changed.write(AxisChanged {
         axis: maze.axis(),
         previous_axis: maze.axis(),
@@ -47,7 +29,6 @@ fn initial_events_on_load(
 fn level_navigation(
     mut level: ResMut<MazeLevel>,
     keys: Res<ButtonInput<KeyCode>>,
-    mut position_event: MessageWriter<PositionChanged>,
     mut axis_event: MessageWriter<AxisChanged>,
 ) {
     let mut shift_axis = |key: KeyCode, axis: Axis, dir: Direction| {
@@ -69,15 +50,7 @@ fn level_navigation(
     shift_axis(KeyCode::KeyX, Axis::Y, Direction::Positive);
     let mut shift_position = |key: KeyCode, axis: Axis, dir: Direction| {
         if keys.just_pressed(key) {
-            let previous_position = level.pos();
             level.move_pos(axis, dir);
-            let position = level.pos();
-            if previous_position != position {
-                position_event.write(PositionChanged {
-                    _position: position,
-                    _previous_position: previous_position,
-                });
-            }
         }
     };
     shift_position(KeyCode::KeyW, Axis::X, Direction::Positive);
