@@ -33,37 +33,12 @@ impl MazeAssets {
     }
 }
 
-#[derive(Resource)]
-pub struct MazeUiAssets {
-    pub rotate_arrow: Handle<Image>,
-    pub rotate_arrow_inactive: Handle<Image>,
-    pub rotate_arrow_flip: Handle<Image>,
-    pub rotate_arrow_flip_inactive: Handle<Image>,
-    pub move_arrow: Handle<Image>,
-    pub move_arrow_inactive: Handle<Image>,
-}
-
-impl MazeUiAssets {
-    fn handles(&self) -> impl Iterator<Item = UntypedAssetId> {
-        [
-            self.rotate_arrow.id().untyped(),
-            self.rotate_arrow_inactive.id().untyped(),
-            self.rotate_arrow_flip.id().untyped(),
-            self.rotate_arrow_flip_inactive.id().untyped(),
-            self.move_arrow.id().untyped(),
-            self.move_arrow_inactive.id().untyped(),
-        ]
-        .into_iter()
-    }
-}
-
 #[derive(SystemParam)]
 pub struct AssetChecker<'w> {
     server: Res<'w, AssetServer>,
 
     common: Res<'w, CommonAssets>,
     maze: Res<'w, MazeAssets>,
-    maze_ui: Res<'w, MazeUiAssets>,
 }
 
 impl AssetChecker<'_> {
@@ -71,7 +46,6 @@ impl AssetChecker<'_> {
         [].into_iter()
             .chain(self.common.handles())
             .chain(self.maze.handles())
-            .chain(self.maze_ui.handles())
             .map(|id| self.server.load_state(id))
             .collect()
     }
@@ -99,14 +73,6 @@ fn load_assets(
             ..default()
         })),
         player_material: materials.add(StandardMaterial::from(Color::srgb(0.5, 0.5, 0.8))),
-    });
-    c.insert_resource(MazeUiAssets {
-        rotate_arrow: server.load("textures/circle_arrow.png"),
-        rotate_arrow_inactive: server.load("textures/circle_dash_arrow.png"),
-        rotate_arrow_flip: server.load("textures/circle_arrow_flip.png"),
-        rotate_arrow_flip_inactive: server.load("textures/circle_dash_arrow_flip.png"),
-        move_arrow: server.load("textures/arrow.png"),
-        move_arrow_inactive: server.load("textures/dash_arrow.png"),
     });
 }
 

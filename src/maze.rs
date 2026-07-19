@@ -4,35 +4,26 @@ use std::{
     rc::{Rc, Weak},
 };
 
-pub struct Maze<const DIMS: usize> {
-    walks: HashSet<([u8; DIMS], [u8; DIMS])>,
-    lengths: [u8; DIMS],
+pub struct Maze {
+    walks: HashSet<(Box<[u8]>, Box<[u8]>)>,
+    sides: Box<[u8]>,
 }
 
-impl<const DIMS: usize> Default for Maze<DIMS> {
-    fn default() -> Self {
-        Self {
-            walks: Default::default(),
-            lengths: [1; DIMS],
-        }
-    }
-}
-
-impl<const DIMS: usize> Maze<DIMS> {
+impl Maze {
     // Generate a maze with the provided number of side lengths.
-    pub fn new(lengths: &[u8; DIMS], rng: &mut impl rand::Rng) -> Maze<DIMS> {
+    pub fn new(lengths: &[u8], rng: &mut impl rand::Rng) -> Maze {
         let cell_count = lengths.iter().map(|f| *f as usize).product();
 
         // Indexed by dimension sums (higher is higher power).
-        let mut cells = HashMap::<[u8; DIMS], MazeGenCellRef>::with_capacity(cell_count);
+        let mut cells = HashMap::<Box<[u8]>, MazeGenCellRef>::with_capacity(cell_count);
         for index in 0..cell_count {
             let pos = unwrap_index(lengths, index).unwrap();
             cells.insert(pos, MazeGenCell::new(index));
         }
 
-        let mut pending_edges = BinaryHeap::with_capacity(cell_count * DIMS);
+        let mut pending_edges = BinaryHeap::with_capacity(cell_count * lengths.len());
         for index in 0..cell_count {
-            for dim in 0..DIMS {
+            for dim in 0..lengths.len() {
                 pending_edges.push((rng.next_u32(), index, dim))
             }
         }
@@ -47,7 +38,7 @@ impl<const DIMS: usize> Maze<DIMS> {
             if a[dim] == lengths[dim] {
                 continue;
             }
-            let mut b = a;
+            let mut b = a.clone();
             b[dim] += 1;
             if let Some(cell_a) = cells.get(&a) {
                 if let Some(cell_b) = cells.get(&b) {
@@ -60,15 +51,15 @@ impl<const DIMS: usize> Maze<DIMS> {
 
         walks.shrink_to_fit();
 
-        Maze::<DIMS> {
-            lengths: *lengths,
+        Maze {
+            sides: lengths.into(),
             walks,
         }
     }
 
-    fn check_pair(&self, a: &[u8; DIMS], b: &[u8; DIMS]) -> Option<bool> {
-        for index in 0..DIMS {
-            let length = self.lengths[index];
+    fn check_pair(&self, a: &[u8], b: &[u8]) -> Option<bool> {
+        for index in 0..a.len() {
+            let length = self.sides[index];
             if a[index] >= length || b[index] >= length {
                 return None;
             }
@@ -76,11 +67,14 @@ impl<const DIMS: usize> Maze<DIMS> {
 
         // Check for either direction because it's cheaper to check twice
         // than store an exponential memory problem.
-        Some(self.walks.contains(&(*a, *b)) || self.walks.contains(&(*b, *a)))
+        Some(
+            self.walks.contains(&(a.into(), b.into()))
+                || self.walks.contains(&(b.into(), a.into())),
+        )
     }
 
-    pub fn can_move(&self, point: &[u8; DIMS], dimension: usize) -> Option<bool> {
-        let mut target_point = *point;
+    pub fn can_move(&self, point: &[u8], dimension: usize) -> Option<bool> {
+        let mut target_point: Box<[u8]> = point.into();
         if let Some(shift_axis) = target_point.get_mut(dimension) {
             if let Some(new_shifted) = shift_axis.checked_add(1) {
                 *shift_axis = new_shifted;
@@ -90,9 +84,8 @@ impl<const DIMS: usize> Maze<DIMS> {
         None
     }
 
-    #[inline]
-    pub fn lengths(&self) -> &[u8; DIMS] {
-        &self.lengths
+    pub fn sides(&self) -> &[u8] {
+        &self.sides
     }
 }
 
@@ -134,8 +127,8 @@ impl MazeGenCell {
     }
 }
 
-fn unwrap_index<const DIMS: usize>(lengths: &[u8; DIMS], index: usize) -> Option<[u8; DIMS]> {
-    let mut result = [0; DIMS];
+fn unwrap_index(lengths: &[u8], index: usize) -> Option<Box<[u8]>> {
+    let mut result: Box<[u8]> = lengths.into();
     let mut remaining_index = index;
     for (length, res) in lengths.iter().zip(result.iter_mut()) {
         *res = (remaining_index % (*length as usize)) as u8;
@@ -183,8 +176,8 @@ mod tests {
 
     #[test]
     fn unwrap_index_verify() {
-        assert_eq!(unwrap_index(&[2], 0), Some([0]));
-        assert_eq!(unwrap_index(&[2], 1), Some([1]));
+        assert_eq!(unwrap_index(&[2], 0), Some([0].into()));
+        assert_eq!(unwrap_index(&[2], 1), Some([1].into()));
         assert_eq!(unwrap_index(&[2], 2), None);
     }
 

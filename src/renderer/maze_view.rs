@@ -1,7 +1,8 @@
 use crate::assets::MazeAssets;
 use crate::game::level::MazeLevel;
-use crate::game::{AxisChanged, PositionChanged};
-use crate::renderer::tween::TransformTween;
+use crate::game::AxisChanged;
+use crate::renderer::despawn_after::DespawnAfter;
+use crate::renderer::tween::{TransformTween, TweenTick};
 use crate::screens::AppState;
 use bevy::prelude::*;
 use std::cmp::Ordering;
@@ -13,11 +14,12 @@ pub fn plugin(app: &mut App) {
         .add_systems(
             Update,
             (
-                maze_level_renderer,
+                start_despawn_of_render
+                    .after(TweenTick),
+                maze_level_renderer.after(start_despawn_of_render),
                 update_maze_offset.after(maze_level_renderer),
-                start_despawn_of_render,
             )
-                .run_if(in_state(AppState::InMaze)),
+                .run_if(in_state(AppState::InMaze).and_then(resource_changed::<MazeLevel>)),
         );
 }
 
@@ -32,37 +34,27 @@ fn spawn_player(mut c: Commands, assets: Res<MazeAssets>) {
 #[derive(Component, Default)]
 #[require(Transform, Visibility)]
 pub struct MazePositionTracker {
-    visible_axis: [u8; 2],
+    visible_axis: [usize; 2],
 }
 
-fn maze_level_offset(maze: &MazeLevel, axis: [u8; 2]) -> Vec3 {
-    let p = maze.pos_in(axis);
+fn maze_level_offset(maze: &MazeLevel, axis: [usize; 2]) -> Vec3 {
+    let p = maze.pos_other(axis);
     Vec3::new(-(p[0] as f32), 0.0, -(p[1] as f32))
 }
 
 fn update_maze_offset(
     level: Res<MazeLevel>,
     mut c: Commands,
-    mut maze_query: Query<(Entity, &MazePositionTracker, &Transform), Without<TransformTween>>,
-    mut position_changed: MessageReader<PositionChanged>,
-    mut axis_changed: MessageReader<AxisChanged>,
+    mut maze_query: Query<(Entity, &MazePositionTracker, &Transform)>,
 ) {
-    let mut update_pos = || {
-        for (e, renderer, trs) in &mut maze_query {
-            if let Ok(mut c) = c.get_entity(e) {
-                c.insert(TransformTween::new(
-                    Duration::from_millis(100),
-                    *trs,
-                    trs.with_translation(maze_level_offset(level.as_ref(), renderer.visible_axis)),
-                ));
-            }
+    for (e, renderer, trs) in &mut maze_query {
+        if let Ok(mut c) = c.get_entity(e) {
+            c.try_insert(TransformTween::new(
+                Duration::from_millis(100),
+                *trs,
+                trs.with_translation(maze_level_offset(level.as_ref(), renderer.visible_axis)),
+            ));
         }
-    };
-    for _ in position_changed.read() {
-        update_pos();
-    }
-    for _ in axis_changed.read() {
-        update_pos();
     }
 }
 
@@ -116,7 +108,7 @@ fn maze_level_renderer(
             ))
             .with_children(|c| {
                 // borders
-                let [px, py] = level.pos_limit();
+                let [px, py] = level.pos_cur_limit();
                 let lx = px as f32;
                 let ly = py as f32;
                 c.spawn((
@@ -143,7 +135,7 @@ fn maze_level_renderer(
                 ));
 
                 // joints
-                let [psx, psy] = level.pos_limit();
+                let [psx, psy] = level.pos_cur_limit();
                 for x in 0..psx + 1 {
                     for y in 0..psy + 1 {
                         c.spawn((
@@ -181,14 +173,14 @@ fn start_despawn_of_render(
     for axis in axis_changed.read() {
         for e in &render_query {
             if let Ok(mut c) = c.get_entity(e) {
-                c.insert(
+                c.insert((
                     TransformTween::new(
                         Duration::from_millis(200),
                         Transform::default(),
                         Transform::from_rotation(get_rot_from_axis(axis)),
-                    )
-                    .despawn_on_complete(),
-                )
+                    ),
+                    DespawnAfter::new(Duration::from_millis(200)),
+                ))
                 .remove::<MazeRotationTracker>();
             }
         }

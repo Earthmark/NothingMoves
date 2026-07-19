@@ -2,17 +2,10 @@ use crate::maze;
 use crate::screens::AppState;
 use bevy::prelude::*;
 use rand::prelude::*;
-use std::ops::{Deref, DerefMut};
 
 pub fn plugin(app: &mut App) {
     app.add_systems(Update, level_load_system)
         .add_message::<LoadLevel>();
-}
-
-struct MazeImpl<const DIMS: usize> {
-    maze: maze::Maze<DIMS>,
-    position: [u8; DIMS],
-    axis: [u8; 2],
 }
 
 #[derive(PartialEq, Eq, Clone, Copy)]
@@ -35,6 +28,7 @@ impl Axis {
             Axis::Y => &v[1],
         }
     }
+
     pub fn get_mut<'a, T>(&self, v: &'a mut [T; 2]) -> &'a mut T {
         match self {
             Axis::X => &mut v[0],
@@ -50,50 +44,62 @@ pub enum Direction {
 }
 
 impl Direction {
-    /*
-    fn shift_wrapped(&self, value: u8, limit: u8) -> u8 {
-        (match self {
-            Direction::Positive => value.checked_add(1).unwrap_or(0),
-            Direction::Negative => value.checked_sub(1).unwrap_or(limit - 1),
-        } % limit)
+    fn shift(&self, val: &mut u8) {
+        *val = match self {
+            Direction::Positive => val.saturating_add(1),
+            Direction::Negative => val.saturating_sub(1),
+        };
     }
-     */
 
-    fn shift_clamped(&self, value: u8, limit: u8) -> u8 {
+    fn shift_clamped(&self, value: usize, limit: usize) -> usize {
         match self {
-            Direction::Positive => value.checked_add(1).unwrap_or(limit - 1),
+            Direction::Positive => value.saturating_add(1),
             Direction::Negative => value.saturating_sub(1),
         }
         .clamp(0, limit - 1)
     }
 }
 
-impl<const DIMS: usize> Default for MazeImpl<DIMS> {
-    fn default() -> Self {
-        Self {
-            maze: Default::default(),
-            axis: [0, 1],
-            position: [0; DIMS],
-        }
-    }
+#[derive(Resource)]
+pub struct MazeLevel {
+    maze: maze::Maze,
+    pos: Box<[u8]>,
+    axis: [usize; 2],
 }
 
-impl<const DIMS: usize> MazeImpl<DIMS> {
-    pub fn new(lengths: &[u8; DIMS], rng: &mut impl rand::Rng) -> Self {
+impl MazeLevel {
+    pub fn new(lengths: &[u8], rng: &mut impl Rng) -> Self {
         Self {
-            maze: crate::maze::Maze::new(lengths, rng),
+            maze: maze::Maze::new(lengths, rng),
+            pos: vec![0; lengths.len()].into_boxed_slice(),
             axis: [0, 1],
-            position: [0; DIMS],
         }
     }
-}
 
-impl<const DIMS: usize> MazeView for MazeImpl<DIMS> {
-    fn axis(&self) -> [u8; 2] {
+    pub fn sides(&self) -> &[u8] {
+        self.maze.sides()
+    }
+
+    pub fn axis(&self) -> [usize; 2] {
         self.axis
     }
 
-    fn shift_axis(&mut self, axis: Axis, dir: Direction) {
+    pub fn pos(&self) -> &[u8] {
+        &self.pos
+    }
+
+    pub fn pos_cur_limit(&self) -> [u8; 2] {
+        [
+            self.maze.sides()[self.axis[0]],
+            self.maze.sides()[self.axis[1]],
+        ]
+    }
+
+    pub fn pos_other(&self, axis: [usize; 2]) -> [u8; 2] {
+        [self.pos[axis[0]], self.pos[axis[1]]]
+    }
+
+    pub fn shift_axis(&mut self, axis: Axis, dir: Direction) {
         let target_axis = *axis.get(&self.axis());
         let off_target_axis = *axis.invert().get(&self.axis());
 
@@ -103,7 +109,7 @@ impl<const DIMS: usize> MazeView for MazeImpl<DIMS> {
             target_axis
         };
 
-        let new_off_axis = dir.shift_clamped(linear_current, DIMS as u8 - 1);
+        let new_off_axis = dir.shift_clamped(linear_current, self.pos.len() - 1);
         let dest = if new_off_axis >= off_target_axis {
             new_off_axis + 1
         } else {
@@ -113,52 +119,15 @@ impl<const DIMS: usize> MazeView for MazeImpl<DIMS> {
         *axis.get_mut(&mut self.axis) = dest;
     }
 
-    fn dims_limit(&self) -> &[u8] {
-        self.maze.lengths()
-    }
-
-    fn dims(&self) -> &[u8] {
-        &self.position
-    }
-
-    // assume dim_x and dim_y are both together.
-    fn pos_limit(&self) -> [u8; 2] {
-        [
-            self.maze.lengths()[self.axis[0] as usize],
-            self.maze.lengths()[self.axis[1] as usize],
-        ]
-    }
-
-    fn pos(&self) -> [u8; 2] {
-        [
-            self.position[self.axis[0] as usize],
-            self.position[self.axis[1] as usize],
-        ]
-    }
-
-    fn pos_in(&self, axis: [u8; 2]) -> [u8; 2] {
-        [
-            self.position[axis[0] as usize],
-            self.position[axis[1] as usize],
-        ]
-    }
-
-    fn move_pos(&mut self, axis: Axis, dir: Direction) {
-        let dim = *axis.get(&self.axis) as usize;
-        if let Some(true) = self.can_move(dim as u8, dir) {
-            if let Some(new_pos) = if dir == Direction::Positive {
-                self.position[dim].checked_add(1)
-            } else {
-                self.position[dim].checked_sub(1)
-            } {
-                self.position[dim] = new_pos;
-            }
+    pub fn move_pos(&mut self, axis: Axis, dir: Direction) {
+        let dim = *axis.get(&self.axis);
+        if let Some(true) = self.can_move(dim, dir) {
+            dir.shift(&mut self.pos[dim]);
         }
     }
 
-    fn can_move(&self, dim: u8, dir: Direction) -> Option<bool> {
-        let dim = dim as usize;
-        let mut pos = self.position;
+    pub fn can_move(&self, dim: usize, dir: Direction) -> Option<bool> {
+        let mut pos = self.pos.clone();
         if dir == Direction::Negative {
             let new_pos = pos[dim].checked_sub(1)?;
             pos[dim] = new_pos;
@@ -166,72 +135,19 @@ impl<const DIMS: usize> MazeView for MazeImpl<DIMS> {
         self.maze.can_move(&pos, dim)
     }
 
-    fn wall_in_current(&self, position: [u8; 2], axis: Axis) -> bool {
-        let mut cursor = self.position;
-        cursor[self.axis[0] as usize] = position[0];
-        cursor[self.axis[1] as usize] = position[1];
-        if let Some(walkable) = self.maze.can_move(&cursor, *axis.get(&self.axis) as usize) {
+    pub fn wall_in_current(&self, position: [u8; 2], axis: Axis) -> bool {
+        let mut cursor = self.pos.clone();
+        cursor[self.axis[0]] = position[0];
+        cursor[self.axis[1]] = position[1];
+        if let Some(walkable) = self.maze.can_move(&cursor, *axis.get(&self.axis)) {
             !walkable
         } else {
             false
         }
     }
-}
 
-pub trait MazeView: Sync + Send {
-    fn axis(&self) -> [u8; 2];
-    fn shift_axis(&mut self, axis: Axis, dir: Direction);
-
-    fn dims_limit(&self) -> &[u8];
-    fn dims(&self) -> &[u8];
-    fn pos_limit(&self) -> [u8; 2];
-    fn pos(&self) -> [u8; 2];
-    fn pos_in(&self, axis: [u8; 2]) -> [u8; 2];
-    fn move_pos(&mut self, axis: Axis, dir: Direction);
-
-    fn can_move(&self, dim: u8, dir: Direction) -> Option<bool>;
-
-    fn wall_in_current(&self, position: [u8; 2], axis: Axis) -> bool;
-}
-
-#[derive(Resource)]
-pub struct MazeLevel {
-    inner: Box<dyn MazeView>,
-}
-
-impl Default for MazeLevel {
-    fn default() -> Self {
-        Self {
-            inner: Box::<MazeImpl<2>>::default(),
-        }
-    }
-}
-
-impl MazeLevel {
-    pub fn new<const DIMS: usize>(lengths: &[u8; DIMS], rng: &mut impl rand::Rng) -> Self {
-        Self {
-            inner: Box::new(MazeImpl::new(lengths, rng)),
-        }
-    }
-}
-
-impl Deref for MazeLevel {
-    type Target = dyn MazeView;
-
-    fn deref(&self) -> &Self::Target {
-        self.inner.as_ref()
-    }
-}
-
-impl DerefMut for MazeLevel {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        self.inner.as_mut()
-    }
-}
-
-impl MazeLevel {
-    pub fn iter_walls(&self) -> impl std::iter::Iterator<Item = ([u8; 2], [u8; 2])> + '_ {
-        let [length_x, length_y] = self.pos_limit();
+    pub fn iter_walls(&self) -> impl Iterator<Item = ([u8; 2], [u8; 2])> + '_ {
+        let [length_x, length_y] = self.pos_cur_limit();
 
         (0..length_x)
             .flat_map(move |x| (0..length_y).map(move |y| [x, y]))
@@ -255,48 +171,15 @@ impl MazeLevel {
 
 #[derive(Clone, Debug, Message)]
 pub struct LoadLevel {
-    pub rng_source: RngSource,
-    pub dimensions: DimensionLength,
-}
-
-#[derive(Clone, Debug)]
-pub enum RngSource {
-    Seeded(u64),
-}
-
-// Remove this once construction methods for dimensions are found.
-#[allow(dead_code)]
-#[derive(Clone, Debug)]
-pub enum DimensionLength {
-    Two([u8; 2]),
-    Three([u8; 3]),
-    Four([u8; 4]),
-    Five([u8; 5]),
-    Six([u8; 6]),
-}
-
-impl Default for LoadLevel {
-    fn default() -> Self {
-        Self {
-            rng_source: RngSource::Seeded(rand::random()),
-            dimensions: DimensionLength::Two([2, 2]),
-        }
-    }
+    pub rng_source: u64,
+    pub dimensions: Box<[u8]>,
 }
 
 impl LoadLevel {
-    pub fn new(d: &[u8], seed: u64) -> Self {
-        let dimensions = match d.len() {
-            2 => DimensionLength::Two([d[0], d[1]]),
-            3 => DimensionLength::Three([d[0], d[1], d[2]]),
-            4 => DimensionLength::Four([d[0], d[1], d[2], d[3]]),
-            5 => DimensionLength::Five([d[0], d[1], d[2], d[3], d[4]]),
-            6 => DimensionLength::Six([d[0], d[1], d[2], d[3], d[4], d[5]]),
-            _ => panic!("Unexpected dimension length, it must be 2-6."),
-        };
+    pub fn new(dimensions: &[u8], seed: u64) -> Self {
         Self {
-            dimensions,
-            rng_source: RngSource::Seeded(seed),
+            dimensions: dimensions.into(),
+            rng_source: seed,
         }
     }
 }
@@ -307,16 +190,10 @@ fn level_load_system(
     mut app_state: ResMut<NextState<AppState>>,
 ) {
     for level_loader in events.read() {
-        let mut rng = match level_loader.rng_source {
-            RngSource::Seeded(seed) => StdRng::seed_from_u64(seed),
-        };
-        c.insert_resource(match level_loader.dimensions {
-            DimensionLength::Two(lengths) => MazeLevel::new(&lengths, &mut rng),
-            DimensionLength::Three(lengths) => MazeLevel::new(&lengths, &mut rng),
-            DimensionLength::Four(lengths) => MazeLevel::new(&lengths, &mut rng),
-            DimensionLength::Five(lengths) => MazeLevel::new(&lengths, &mut rng),
-            DimensionLength::Six(lengths) => MazeLevel::new(&lengths, &mut rng),
-        });
+        c.insert_resource(MazeLevel::new(
+            &level_loader.dimensions,
+            &mut StdRng::seed_from_u64(level_loader.rng_source),
+        ));
         app_state.set(AppState::InMaze);
     }
 }

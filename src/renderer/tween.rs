@@ -2,8 +2,11 @@ use bevy::prelude::*;
 use std::time::Duration;
 
 pub fn plugin(app: &mut App) {
-    app.add_systems(Update, tick_tweens);
+    app.add_systems(Update, tick_tweens.in_set(TweenTick));
 }
+
+#[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
+pub struct TweenTick;
 
 #[derive(Component)]
 #[require(Transform)]
@@ -12,14 +15,6 @@ pub struct TransformTween {
     ease: EaseFunction,
     start: Transform,
     end: Transform,
-    on_complete: OnComplete,
-}
-
-#[derive(Default)]
-pub enum OnComplete {
-    #[default]
-    Keep,
-    Despawn,
 }
 
 impl TransformTween {
@@ -29,13 +24,7 @@ impl TransformTween {
             ease: EaseFunction::CubicInOut,
             start,
             end,
-            on_complete: OnComplete::Keep,
         }
-    }
-
-    pub fn despawn_on_complete(mut self) -> Self {
-        self.on_complete = OnComplete::Despawn;
-        self
     }
 
     fn sample(&self) -> Transform {
@@ -58,14 +47,7 @@ fn tick_tweens(
         transform.set_if_neq(tween.sample());
 
         if tween.timer.is_finished() {
-            match tween.on_complete {
-                OnComplete::Keep => {
-                    c.entity(e).remove::<TransformTween>();
-                }
-                OnComplete::Despawn => {
-                    c.entity(e).despawn();
-                }
-            }
+            c.entity(e).try_remove::<TransformTween>();
         }
     }
 }

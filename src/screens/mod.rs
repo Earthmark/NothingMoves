@@ -1,5 +1,5 @@
 mod loading;
-mod maze;
+pub mod maze;
 mod menu;
 
 use bevy::prelude::*;
